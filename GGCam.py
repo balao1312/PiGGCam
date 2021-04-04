@@ -9,12 +9,12 @@ import sys
 is_usb_mouned = call('mount -l | grep sda1', shell=True, stdout=DEVNULL, stderr=DEVNULL)
 if is_usb_mouned:
     print('\n==> usb drive not found. Trying to mount...')
-    mount_result = call(['/home/pi/PiGGCam/mount_usb.sh'], stdout=DEVNULL, stderr=DEVNULL)
+    mount_result = call(['./mount_usb.sh'], stdout=DEVNULL, stderr=DEVNULL)
     if mount_result != 0:
         print('==> Can\'t mount usb. Exited.\n')
         sys.exit(1)
     else:
-        print('==> usb drive mounted.\n')
+        print('==> usb drive mounted.')
 
 
 usb_video_folder = Path('/mnt/usb/videos')
@@ -24,7 +24,7 @@ if not usb_video_folder.exists():
 
 temp_h264_file = Path('/home/pi/video.h264')
 
-duration = 60 
+duration = 10
  
 print('\n==> Start recording ...')
 with picamera.PiCamera() as cam:
@@ -45,13 +45,13 @@ with picamera.PiCamera() as cam:
 print('==> Done recording\n')
 
 
-timestamp = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
 
 print('==> Processing video: ')
-
+timestamp = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
 output = usb_video_folder.joinpath(f'{timestamp}.mp4')
-print(f'==> Saving to {output}')
 
+print(f'==> Saving to {output}')
 call(["MP4Box", "-add", temp_h264_file, output], stdout=DEVNULL, stderr=DEVNULL)
 print('\n==> Done. mp4 file saved.\n')
+temp_h264_file.unlink()
 
