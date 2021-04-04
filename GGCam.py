@@ -9,7 +9,7 @@ import sys
 is_usb_mouned = call('mount -l | grep sda1', shell=True, stdout=DEVNULL, stderr=DEVNULL)
 if is_usb_mouned:
     print('\n==> usb drive not found. Trying to mount...')
-    mount_result = call(['/home/pi/mount_usb.sh'], stdout=DEVNULL, stderr=DEVNULL)
+    mount_result = call(['/home/pi/PiGGCam/mount_usb.sh'], stdout=DEVNULL, stderr=DEVNULL)
     if mount_result != 0:
         print('==> Can\'t mount usb. Exited.\n')
         sys.exit(1)
