@@ -19,12 +19,12 @@ if is_usb_mouned:
 
 usb_video_folder = Path('/mnt/usb/videos')
 if not usb_video_folder.exists():
-    print('==> Create folder: "videos" on usb drive.\n')
+    print('\n==> Create folder: "videos" on usb drive.')
     usb_video_folder.mkdir()
 
 temp_h264_file = Path('/home/pi/video.h264')
 
-duration = 10 
+duration = 60 
  
 print('\n==> Start recording ...')
 with picamera.PiCamera() as cam:
