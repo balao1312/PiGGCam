@@ -69,5 +69,3 @@ while True:
         print('==> Done recording\n')
 
     time.sleep(1)
-
-
