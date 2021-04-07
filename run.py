@@ -1,3 +1,5 @@
+#!/usr/bin/python3 
+
 from GGCam import GGCam
 
 if __name__ == '__main__':
