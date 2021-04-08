@@ -30,19 +30,14 @@ class GGCam():
             print('==> no USB drive found. exited.')
             sys.exit(1)
 
-        # check if mount folder is made
         self.check_mount_folder()
 
-        # check if usb is mounted
         if self.check_usb_mount():
-            self.is_usb_mounted = True
             print('==> USB drive already mounted.')
         else:
-            self.is_usb_mounted = False
             print('==> USB drive is not mounted.')
             self.try_mount_usb()
         
-        # check if output folder is made
         self.check_output_folder()
 
     def check_usb_partition_table(self):
@@ -80,7 +75,7 @@ class GGCam():
             self.output_folder.mkdir()
             print(f'==> {self.output_folder} created for output')
         
-    def recording(self):
+    def record(self):
         with picamera.PiCamera() as cam:
             cam.resolution=(1920,1080)
             cam.annotate_background = picamera.Color('black')
@@ -89,20 +84,18 @@ class GGCam():
             cam.start_recording(str(self.temp_h264_file))
         
             start = datetime.now()
-            count = 0
             while True:
+                print(f'==> Recording clip start at {start.strftime('%Y-%m-%d %H:%M:%S')}')
                 # if (datetime.now() - start).seconds > 10:
                     # cam.stop_preview()
                 cam.annotate_text = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                 cam.wait_recording(0.1)
-                print(count)
-                count +=1
                 if GPIO.input(3):
                     return
                 time.sleep(1)
     
-    def processing_video(self):
-        print('==> Start converting video ')
+    def convert_video(self):
+        print('==> Start converting video ...')
         timestamp = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
         output = self.output_folder.joinpath(f'{timestamp}.mp4')
         print(f'==> Saving to {output}')
@@ -118,6 +111,6 @@ class GGCam():
         
         while True:
             if not GPIO.input(3):
-                self.recording()
-                self.processing_video()
+                self.record()
+                self.convert_video()
             time.sleep(1)
