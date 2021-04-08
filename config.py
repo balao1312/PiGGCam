@@ -1,7 +1,8 @@
 config = {
-    'interval': 300,
+    'duration': 300,
     'mount_folder': '/mnt/usb',
-    'temp_h264_file': '/mnt/usb/video.h264',
+    'h264_file': '/mnt/usb/video.h264',
+    'h264_file_2': '/mnt/usb/video2.h264',
     'output_folder': '/mnt/usb/videos',
-    'partition_id': 'sdb',
+    'partition_id': 'sda',
 }
