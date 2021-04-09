@@ -1,12 +1,11 @@
-import RPi.GPIO as GPIO
-import picamera
+# import RPi.GPIO as GPIO
+# import picamera
 
 from config import config
 from datetime import datetime
 from subprocess import call, DEVNULL, check_output, STDOUT
 from pathlib import Path
 import threading
-import shutil
 import time
 import sys
 import re
@@ -15,17 +14,24 @@ import re
 class GGCam():
 
     try:
-        duration = int(config['duration'])
+        duration = config['duration']
         mount_folder = Path(config['mount_folder'])
-        h264_files = [Path(config['h264_file']), Path(config['h264_file_2'])]
         output_folder = Path(config['output_folder'])
         partition_id = config['partition_id']
+        fps = config['fps']
+        resolution = config['resolution']
     except Exception as e:
         print(f'==> something wrong with config.py. \n\terror: {e}')
         sys.exit(1)
 
-    self.temp_file = self.mount_folder.joinpath('temp.h264')
-    self.h264_index = 0 
+    h264_files = {
+        'recording': mount_folder.joinpath('temp.h264'),
+        'done': mount_folder.joinpath('temp_2.h264')
+    }
+
+    clip_count = 0
+    clip_start_time = None
+    timestamp_filename = None
 
     def __init__(self):
         # check if there is any USB drive and get USB drive partition table (gpt or dos)
@@ -80,70 +86,64 @@ class GGCam():
         if not self.output_folder.exists():
             self.output_folder.mkdir()
             print(f'==> {self.output_folder} created for output')
-        
-    def jumping_h264_file_index()
-        if self.h264_index + 1 < len(self.h264_files):
-            self.h264_index += 1
-        else:
-            self.h264_index = 0
+
+    def change_h264_set(self):
+        self.h264_files['recording'], self.h264_files['done'] = self.h264_files['done'], self.h264_files['recording']
 
     def record(self):
+
+        def start_recording_session():
+            self.clip_count += 1
+            self.clip_start_time = datetime.now()
+            self.timestamp_filename = self.clip_start_time.strftime('%Y-%m-%d_%H-%M-%S')
+            cam.start_recording(str(self.h264_files['recording']))
+            print(f'\n==> Recording clip {self.clip_count} , start at {self.clip_start_time.strftime("%Y-%m-%d %H:%M:%S")}')
+            print(f'==> Duration : {self.duration} secs')
+
         with picamera.PiCamera() as cam:
-            cam.resolution=(1920,1080)
+            cam.resolution = self.resolution
             cam.annotate_background = picamera.Color('black')
             cam.framerate = self.fps
             cam.start_preview()
-            cam.start_recording(str(self.h264_files[self.h264_index]))
-        
-            start = datetime.now()
-            print(f'\n==> Recording clip start at {start.strftime("%Y-%m-%d %H:%M:%S")}')
-            print(f'==> Duration : {self.duration} secs')
+
+            start_recording_session()
 
             while True:
                 if GPIO.input(3):
                     print('\n==> Recording stopped.')
+                    th_2 = threading.Thread(target=self.convert_video, args=(self.h264_files['recording'], self.timestamp_filename, self.clip_count))
+                    th_2.start()
                     return
 
-                if (datetime.now() - start).seconds >= self.duration:
+                if (datetime.now() - self.clip_start_time).seconds >= self.duration:
                     cam.stop_recording()
-                    # record with another file for no delay
-                    self.jumping_h264_file_index()
-                    cam.start_recording(str(self.h264_files[self.h264_index])
-                    
-                    #  TODO here
-                    shutil.copy(self.jumping_h264_file, self.temp_file)
 
-                    th_1 = threading.Thread(target=self.convert_video, args=())
+                    # swap recording file and done recored file refference
+                    self.change_h264_set()
+
+                    # start another thread to convert done recorded file
+                    th_1 = threading.Thread(target=self.convert_video, args=(self.h264_files['done'], self.timestamp_filename, self.clip_count))
                     th_1.start()
-
-                    cam.start_recording(str(self.h264_file))
-                    start = datetime.now()
-                    print(f'\n==> Recording clip start at {start.strftime("%Y-%m-%d %H:%M:%S")}')
-                    print(f'==> Duration : {self.duration} secs')
+                    
+                    # record with another file for no delay
+                    start_recording_session()
 
                 cam.annotate_text = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                 cam.wait_recording(0.1)
-                time.sleep(1)
+                time.sleep(0.9)
     
-    def convert_video(self):
-        print('\n==> Start converting video ...')
-        # self.temp_file = self.mount_folder.joinpath('temp.h264')
-        # shutil.copy(self.h264_file, self.temp_file)
-
-        timestamp = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+    def convert_video(self, file, timestamp, count):
         output = self.output_folder.joinpath(f'{timestamp}.mp4')
-
-        exited_code = call(["MP4Box", "-add", f'{self.temp_file}:fps=30', output], stdout=DEVNULL)
+        exited_code = call(["MP4Box", "-add", f'{file}:fps={self.fps}', output], stdout=DEVNULL)
         if exited_code:
-            print('==> Converting failed. exited')
+            print(f'==> Clip {count} convert failed. exited')
             sys.exit(1)
         else:
-            print('==> Converting done. Mp4 file saved to {output}.')
-        self.temp_file.unlink()
+            print(f'==> Clip {count} convert done. Mp4 file saved to {output}.')
+            file.unlink()
         
 
     def run(self):
-        # print('\n==> Ready for recording ...')
         GPIO.setmode(GPIO.BCM)
         GPIO.setup(3, GPIO.IN)
         
@@ -151,7 +151,6 @@ class GGCam():
         while True:
             if not GPIO.input(3):
                 self.record()
-                self.convert_video()
                 msg_showed = not msg_showed
             else:
                 if msg_showed:
@@ -161,5 +160,4 @@ class GGCam():
 
 
 if __name__ == '__main__':
-    a = GGCam()
-    a.convert_video()
+    pass
