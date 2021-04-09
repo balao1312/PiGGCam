@@ -1,5 +1,5 @@
 config = {
-    'duration': 300,
+    'duration': 600,
     'mount_folder': '/mnt/usb',
     'output_folder': '/mnt/usb/videos',
     'partition_id': 'sda',

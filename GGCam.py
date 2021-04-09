@@ -96,7 +96,7 @@ class GGCam():
             self.clip_count += 1
             self.clip_start_time = datetime.now()
             self.timestamp_filename = self.clip_start_time.strftime(
-                '%Y-%m-%d_%H-%M-%S')
+                '%Y%m%d_%H-%M-%S')
             cam.start_recording(str(self.h264_files['recording']))
             print(
                 f'\n==> Recording clip {self.clip_count} , start at {self.clip_start_time.strftime("%Y-%m-%d %H:%M:%S")}')
@@ -113,9 +113,11 @@ class GGCam():
             while True:
                 if GPIO.input(3):
                     print('\n==> Recording stopped.')
+                    cam.stop_recording()
                     th_2 = threading.Thread(target=self.convert_video, args=(
                         self.h264_files['recording'], self.timestamp_filename, self.clip_count))
                     th_2.start()
+                    th_2.join()
                     return
 
                 if (datetime.now() - self.clip_start_time).seconds >= self.duration:
@@ -139,13 +141,13 @@ class GGCam():
     def convert_video(self, file, timestamp, count):
         output = self.output_folder.joinpath(f'{timestamp}.mp4')
         exited_code = call(
-            ["MP4Box", "-add", f'{file}:fps={self.fps}', output], stdout=DEVNULL)
+            ["MP4Box", "-add", f'{file}:fps={self.fps}', output], stdout=DEVNULL, stderr=DEVNULL)
         if exited_code:
             print(f'==> Clip {count} convert failed. exited')
             sys.exit(1)
         else:
             print(
-                f'==> Clip {count} convert done. Mp4 file saved to {output}.')
+                f'\n==> Clip {count} convert done. Mp4 file saved to {output}.')
             file.unlink()
 
     def run(self):
