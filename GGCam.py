@@ -1,17 +1,26 @@
-import RPi.GPIO as GPIO
-import picamera
+# import RPi.GPIO as GPIO
+# import picamera
 
 from config import config
 from datetime import datetime
 from subprocess import call, DEVNULL, check_output, STDOUT
 from pathlib import Path
 import threading
+import logging
 import time
 import sys
 import re
 
 
 class GGCam():
+
+    clip_count = 0
+    clip_start_time = None
+    timestamp_filename = None
+    any_error = False
+    GGCam_info = ''
+    GGCam_error = ''
+
     try:
         duration = config['duration']
         mount_folder = Path(config['mount_folder'])
@@ -20,37 +29,54 @@ class GGCam():
         fps = config['fps']
         resolution = config['resolution']
     except Exception as e:
-        print(f'==> something wrong with config.py. \n\terror: {e}')
-        sys.exit(1)
-
+        # print(f'==> something wrong with config.py. \n\terror: {e}')
+        # sys.exit(1)
+        any_error = True
+        error_msg = f'==> something wrong with config.py. \n\terror: {e}'
+        # make a reset script for user
+    
     h264_files = {
         'recording': mount_folder.joinpath('temp.h264'),
         'done': mount_folder.joinpath('temp_2.h264')
     }
 
-    clip_count = 0
-    clip_start_time = None
-    timestamp_filename = None
+    usb_status = {
+        'partition_table': None,
+        'mount_folder_made': False,
+    }
+    usb_status_changed = False
+    
 
     def __init__(self):
-        # check if there is any USB drive and get USB drive partition table (gpt or dos)
-        usb_partition_table = self.check_usb_partition_table()
-        if usb_partition_table:
-            print(f'==> USB drive partition table is : {usb_partition_table}')
-        else:
-            print('==> no USB drive found. exited.')
-            sys.exit(1)
+        log_folder = Path('./logs')
+        if not log_folder.exists():
+            log_folder.mkdir()
 
-        self.check_mount_folder()
+        FORMAT = '[%(asctime)s] %(levelname)s: %(message)s'
+        datefmt = '%Y-%m-%d %H:%M:%S'
+        logging.basicConfig(level=logging.DEBUG, format=FORMAT, datefmt = datefmt,
+         #filemode='a',
+            handlers=[logging.FileHandler(f'./logs/{datetime.now().strftime("%Y-%m-%d")}.log'), logging.StreamHandler()])
 
-        if self.check_usb_mount():
-            print('==> USB drive already mounted.')
-        else:
-            print('==> USB drive is not mounted.')
-            self.try_mount_usb()
+    def GGCam_init(self):
+        self.check_usb_partition_table()
+        if self.usb_status['partition_table'] == None:
+            self.any_error = True
+            return
 
-        self.check_output_folder()
+        # self.check_mount_folder()
 
+        # if self.check_usb_mount():
+        #     print('==> USB drive already mounted.')
+        # else:
+        #     print('==> USB drive is not mounted.')
+        #     self.any_error = True
+        #     self.try_mount_usb()
+
+        # self.check_output_folder()
+
+# ------------------------------------------------------------------------------------------
+    # check if there is any USB drive and get USB drive partition table (gpt or dos)
     def check_usb_partition_table(self):
         cmd = f'sudo /usr/sbin/fdisk -l | grep -n4 {self.partition_id}'
         try:
@@ -58,9 +84,20 @@ class GGCam():
                 [cmd], timeout=3, stderr=STDOUT, shell=True).decode('utf8')
             target = re.compile(r'Disklabel type: (.*)')
             result = target.search(output)
-            return result.group(1)
-        except:
-            return None
+            logging.info(f'USB drive found. Partition table is : {result.group(1)}')
+            self.usb_status['partition_table'] = result.group(1)
+        except Exception as e:
+            logging.error(msg='No USB drive found. Please insert a USB drive.', extra={'date':'2010-01-01 19:10:22'})
+            self.usb_status['partition_table'] = None
+            self.any_error = True
+
+    def check_mount_folder(self):
+        exited_code = call(f'ls {self.mount_folder}',
+                           shell=True, stdout=DEVNULL)
+        if exited_code:
+            call(f'sudo mkdir {self.mount_folder}', shell=True)
+            self.GGCam_sysout += (f'==> {self.mount_folder} created.\n')
+            self.usb_status['mount_folder_made'] = True
 
     def check_usb_mount(self):
         exited_code = call(
@@ -71,22 +108,19 @@ class GGCam():
         print('==> trying to mount USB drive ...')
         exited_code = call('sudo mount -a', shell=True)
         if exited_code:
-            print('==> USB drive mount failed.')
-            sys.exit(1)
+            # print('==> USB drive mount failed.')
+            # sys.exit(1)
+            self.any_error = True
+            self.error_msg = '==> config problem with /etc/fstab.'
         else:
             print('==> USB drive mounted successfully')
-
-    def check_mount_folder(self):
-        exited_code = call(f'ls {self.mount_folder}',
-                           shell=True, stdout=DEVNULL)
-        if exited_code:
-            call(f'sudo mkdir {self.mount_folder}', shell=True)
-            print(f'==> {self.mount_folder} created.')
+            self.any_error = False
 
     def check_output_folder(self):
         if not self.output_folder.exists():
             self.output_folder.mkdir()
             print(f'==> {self.output_folder} created for output')
+# ----------------------------------------------------------------------------------------------
 
     def swap_h264_set(self):
         self.h264_files['recording'], self.h264_files['done'] = self.h264_files['done'], self.h264_files['recording']
@@ -143,8 +177,10 @@ class GGCam():
         exited_code = call(
             ["MP4Box", "-add", f'{file}:fps={self.fps}', output], stdout=DEVNULL, stderr=DEVNULL)
         if exited_code:
-            print(f'==> Clip {count} convert failed. exited')
-            sys.exit(1)
+            print(f'==> Clip {count} convert failed.')
+            # sys.exit(1)
+            self.any_error = True
+            self.error_msg = f'==> Clip {count} convert failed.'
         else:
             print(
                 f'\n==> Clip {count} convert done. Mp4 file saved to {output}.')
@@ -156,15 +192,52 @@ class GGCam():
 
         show_msg = True
         while True:
-            if not GPIO.input(3):
+            if not GPIO.input(3) and not self.any_error:
                 self.record()
                 show_msg = not show_msg
             else:
                 if show_msg:
-                    print('\n==> Standby for recording ...')
+                    if not self.any_error:
+                        print('\n==> Standby for recording ...')
+                    else:
+                        print(f'\n==> Error: {self.error_msg}')
                     show_msg = not show_msg
             time.sleep(1)
 
+    def test_record(self):
+        while 1:
+            if open('gpio', 'r').read():
+                print('\n==> Recording stopped.')
+                return
+            print('recording...')
+            time.sleep(1)
+
+    def test_run(self):
+        show_msg = True
+        while True:
+            GPIO = str(open('gpio', 'r').read())
+
+            self.GGCam_init()
+            if show_msg:
+                
+                show_msg = False
+
+            # cant record due to some errors
+            # if self.any_error and show_msg:
+            #     print(f'\n==> Error: {self.error_msg}')
+            #     show_msg = not show_msg
+
+            # # no error ready to record
+            # else:
+            #     if not GPIO:
+            #         self.test_record()
+            #         show_msg = not show_msg
+            #     if show_msg:
+            #         if not self.any_error:
+            #             print('\n==> Standby for recording ...')
+            #         show_msg = not show_msg
+            time.sleep(1)
 
 if __name__ == '__main__':
-    pass
+    a = GGCam()
+    a.test_run()
