@@ -2,11 +2,10 @@
 # import picamera
 
 from config import config
-from logging_custom_time import logger
 from datetime import datetime
 from subprocess import call, DEVNULL, check_output, STDOUT
 from pathlib import Path
-from copy import deepcopy, copy
+from copy import deepcopy
 import threading
 import logging
 import time
@@ -20,57 +19,69 @@ class GGCam():
     clip_start_time = None
     timestamp_filename = None
     show_msg = True
-    any_error = False
-
-    try:
-        duration = config['duration']
-        mount_folder = Path(config['mount_folder'])
-        output_folder = Path(config['output_folder'])
-        partition_id = config['partition_id']
-        fps = config['fps']
-        resolution = config['resolution']
-    except Exception as e:
-        # print(f'==> something wrong with config.py. \n\terror: {e}')
-        # sys.exit(1)
-        any_error = True
-        error_msg = f'==> something wrong with config.py. \n\terror: {e}'
-        # make a reset script for user
+    usb_status_changed_list = []
+    # any_error = False
     
-    h264_files = {
-        'recording': mount_folder.joinpath('temp.h264'),
-        'done': mount_folder.joinpath('temp_2.h264')
-    }
-
-    # usb_status_checktime = None
-
     def __init__(self):
-        self.my_logger = logger()
-        self.my_logger.info('PiGGCam starting ...', extra={'timestamp': time.time()})
-        self.usb_status = self.reset_usb_status()
+        logging_format = '[%(asctime)s] %(levelname)s: %(message)s'
+        logging_datefmt = '%Y-%m-%d %H:%M:%S'
+        logging.basicConfig(level=logging.INFO, format=logging_format, datefmt=logging_datefmt,
+            handlers=[logging.FileHandler(f'./logs/{datetime.now().strftime("%Y-%m-%d")}.log'), logging.StreamHandler()])
+
+        self.load_config_from_file()
+        self.h264_files = {
+            'recording': self.mount_folder.joinpath('temp.h264'),
+            'done': self.mount_folder.joinpath('temp_2.h264')
+        }
+
+        self.usb_status = self.usb_status_initiated
         self.last_usb_status = deepcopy(self.usb_status)
-        log_folder = Path('./logs')
-        if not log_folder.exists():
-            log_folder.mkdir()
+
+        self.log_folder = Path('./logs')
+        if not self.log_folder.exists():
+            self.log_folder.mkdir()
+    
+    def load_config_from_file(self):
+        try:
+            self.duration = config['duration']
+            self.mount_folder = Path(config['mount_folder'])
+            self.output_folder = Path(config['output_folder'])
+            self.partition_id = config['partition_id']
+            self.fps = config['fps']
+            self.resolution = config['resolution']
+        except Exception as e:
+            # any_error = True
+            logging.error(f'something wrong with config.py. {e.__class__}: {e}')
+            logging.info('Exited.')
+            # make a reset script for user
+            sys.exit(1)
 
     def GGCam_init(self):
-        self.usb_status_checktime = time.time()
         self.check_usb_partition_table()
         if self.usb_status['partition_table']['status'] is None:
-            self.reset_usb_status()
+            self.usb_status = self.usb_status_initiated
+            self.usb_status['partition_table']['msg'] = 'No USB drive found. Please insert a USB'
             return
+        
+        if not self.usb_status['usb_drive_mounted']['status']:
+            self.adapt_fstab(self.usb_status['partition_table']['status'])
 
         self.check_mount_folder()
         self.check_usb_mount()
         self.try_mount_succeeded_usb()
         self.check_output_folder()
 
-    def reset_usb_status(self):
+    @property
+    def usb_status_initiated(self):
         return {
             'partition_table': {
                 'status': None,
                 'msg': '',
             },
             'mount_folder_exists': {
+                'status': False,
+                'msg': '',
+            },'try_adapt_fstab': {
                 'status': False,
                 'msg': '',
             },
@@ -99,9 +110,22 @@ class GGCam():
             result = target.search(output)
             self.usb_status['partition_table']['msg'] = f'USB drive found. Partition table is : {result.group(1)}'
             self.usb_status['partition_table']['status'] = result.group(1)
+            # self.adapt_fstab(result.group(1))
         except Exception as e:
             self.usb_status['partition_table']['status'] = None
             self.usb_status['partition_table']['msg'] = f'No USB drive found. Please insert a USB drive.'
+
+    def adapt_fstab(self, partition_table):
+        if partition_table == 'dos':
+            cmd = 'sudo cp -f ./vm_fstab_dos /etc/fstab'
+        elif partition_table == 'gpt':
+            cmd = 'sudo cp -f ./vm_fstab_gpt /etc/fstab'
+        exited_code = call(cmd, shell=True)
+        if not exited_code:
+            self.usb_status['try_adapt_fstab']['status'] = True
+            self.usb_status['try_adapt_fstab']['msg'] = f'modify /etc/fstab for {partition_table}'
+        else:
+            self.usb_status['try_adapt_fstab']['msg'] = f'modify /etc/fstab failed.'
 
     def check_mount_folder(self):
         exited_code = call(f'ls {self.mount_folder}',
@@ -118,7 +142,7 @@ class GGCam():
             f'mount -l | grep {self.partition_id}', shell=True, stdout=DEVNULL)
         if not exited_code:
             self.usb_status['usb_drive_mounted']['status'] = True
-            self.usb_status['usb_drive_mounted']['msg'] = 'USB drive already mounted.'
+            self.usb_status['usb_drive_mounted']['msg'] = 'USB drive is mounted.'
         else:
             self.usb_status['usb_drive_mounted']['status'] = False
             self.usb_status['usb_drive_mounted']['msg'] = 'USB drive is not mounted.'
@@ -134,7 +158,6 @@ class GGCam():
 
     def check_output_folder(self):
         if not self.output_folder.exists():
-            self.my_logger.error(f'{self.output_folder} doesn\'t exists.')
             try:
                 self.output_folder.mkdir()
             except PermissionError:
@@ -142,7 +165,7 @@ class GGCam():
                 return
             self.usb_status['output_folder_exists']['msg'] = f'{self.output_folder} created for output.'
         else:
-            self.usb_status['output_folder_exists']['msg'] = f'{self.output_folder} already exists.'
+            self.usb_status['output_folder_exists']['msg'] = f'{self.output_folder} is ready.'
         self.usb_status['output_folder_exists']['status'] = True
         
 # ----------------------------------------------------------------------------------------------
@@ -230,17 +253,16 @@ class GGCam():
             time.sleep(1)
 
     def log_usb_status(self):
-        
-        # print([(key, value) for key in self.usb_status.keys() if key in self.usb_status_changed_list for value in self.usb_status.values() if key in self.usb_status_changed_list])
-        
         for key, values in self.usb_status.items():
             if not key in self.usb_status_changed_list:
                 continue
+            if not values['msg']:
+                continue
 
             if values['status']:
-                self.my_logger.info(values['msg'], extra={'timestamp': self.usb_status_checktime})
+                logging.info(values['msg'])
             else:
-                self.my_logger.error(values['msg'])
+                logging.error(values['msg'])
 
     @property
     def usb_status_changed(self):
@@ -255,7 +277,8 @@ class GGCam():
             time.sleep(1)
 
     def test_run(self):
-        
+        logging.info('PiGGCam starting ...')
+
         while True:
             # GPIO = str(open('gpio', 'r').read())
 
@@ -275,11 +298,9 @@ class GGCam():
             
             self.last_usb_status = deepcopy(self.usb_status)
 
-
             if self.show_msg:
                 self.log_usb_status()
                 self.show_msg = False
-
 
             # cant record due to some errors
             # if self.any_error and show_msg:
