@@ -100,8 +100,8 @@ class GGCam():
             self.usb_status['partition_table']['msg'] = f'USB drive found. Partition table is : {result.group(1)}'
             self.usb_status['partition_table']['status'] = result.group(1)
         except Exception as e:
-            self.usb_status['partition_table']['msg'] = 'No USB drive found. Please insert a USB drive.'
-            logging.error(e)
+            self.usb_status['partition_table']['status'] = None
+            self.usb_status['partition_table']['msg'] = f'No USB drive found. Please insert a USB drive.'
 
     def check_mount_folder(self):
         exited_code = call(f'ls {self.mount_folder}',
@@ -229,7 +229,7 @@ class GGCam():
                     show_msg = not show_msg
             time.sleep(1)
 
-    def show_usb_status(self):
+    def log_usb_status(self):
         
         # print([(key, value) for key in self.usb_status.keys() if key in self.usb_status_changed_list for value in self.usb_status.values() if key in self.usb_status_changed_list])
         
@@ -277,7 +277,7 @@ class GGCam():
 
 
             if self.show_msg:
-                self.show_usb_status()
+                self.log_usb_status()
                 self.show_msg = False
 
 
