@@ -60,7 +60,7 @@ class GGCam():
         self.check_usb_partition_table()
         if self.usb_status['partition_table']['status'] is None:
             self.usb_status = self.usb_status_initiated
-            self.usb_status['partition_table']['msg'] = 'No USB drive found. Please insert a USB'
+            self.usb_status['partition_table']['msg'] = 'No USB drive found. Please insert a USB drive.'
             return
         
         if not self.usb_status['usb_drive_mounted']['status']:
