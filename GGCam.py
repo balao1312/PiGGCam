@@ -1,5 +1,5 @@
-# import RPi.GPIO as GPIO
-# import picamera
+import RPi.GPIO as GPIO
+import picamera
 
 from config import config
 from datetime import datetime
@@ -20,7 +20,7 @@ class GGCam():
     timestamp_filename = None
     show_msg = True
     usb_status_changed_list = []
-    # any_error = False
+    ready_for_recording = False
     
     def __init__(self):
         logging_format = '[%(asctime)s] %(levelname)s: %(message)s'
@@ -99,7 +99,7 @@ class GGCam():
             }
         }
 
-# ------------------------------------------------------------------------------------------
+# ---------------------------------------------------------------------------------------
     # check if there is any USB drive and get USB drive partition table (gpt or dos)
     def check_usb_partition_table(self):
         cmd = f'sudo /usr/sbin/fdisk -l | grep -n4 {self.partition_id}'
@@ -117,9 +117,9 @@ class GGCam():
 
     def adapt_fstab(self, partition_table):
         if partition_table == 'dos':
-            cmd = 'sudo cp -f ./vm_fstab_dos /etc/fstab'
+            cmd = 'sudo cp -f ./fstab_dos /etc/fstab'
         elif partition_table == 'gpt':
-            cmd = 'sudo cp -f ./vm_fstab_gpt /etc/fstab'
+            cmd = 'sudo cp -f ./fstab_gpt /etc/fstab'
         exited_code = call(cmd, shell=True)
         if not exited_code:
             self.usb_status['try_adapt_fstab']['status'] = True
@@ -164,11 +164,9 @@ class GGCam():
                 self.usb_status['output_folder_exists']['msg'] = f'Can\'t create {self.output_folder} folder.'
                 return
             self.usb_status['output_folder_exists']['msg'] = f'{self.output_folder} created for output.'
-        else:
-            self.usb_status['output_folder_exists']['msg'] = f'{self.output_folder} is ready.'
         self.usb_status['output_folder_exists']['status'] = True
         
-# ----------------------------------------------------------------------------------------------
+# ---------------------------------------------------------------------------------------
 
     def swap_h264_set(self):
         self.h264_files['recording'], self.h264_files['done'] = self.h264_files['done'], self.h264_files['recording']
@@ -180,9 +178,8 @@ class GGCam():
             self.timestamp_filename = self.clip_start_time.strftime(
                 '%Y%m%d_%H-%M-%S')
             cam.start_recording(str(self.h264_files['recording']))
-            print(
-                f'\n==> Recording clip {self.clip_count} , start at {self.clip_start_time.strftime("%Y-%m-%d %H:%M:%S")}')
-            print(f'==> Duration : {self.duration} secs')
+            logging.info(
+                f'Start recording clip {self.clip_count} at {self.clip_start_time.strftime("%Y-%m-%d %H:%M:%S")}, duration: {self.duration} secs')
 
         with picamera.PiCamera() as cam:
             cam.resolution = self.resolution
@@ -194,7 +191,7 @@ class GGCam():
 
             while True:
                 if GPIO.input(3):
-                    print('\n==> Recording stopped.')
+                    logging.info('Button pressed for stop recording.')
                     cam.stop_recording()
                     th_2 = threading.Thread(target=self.convert_video, args=(
                         self.h264_files['recording'], self.timestamp_filename, self.clip_count))
@@ -225,31 +222,51 @@ class GGCam():
         exited_code = call(
             ["MP4Box", "-add", f'{file}:fps={self.fps}', output], stdout=DEVNULL, stderr=DEVNULL)
         if exited_code:
-            print(f'==> Clip {count} convert failed.')
+            logging.error(f'Clip {count} convert failed.')
             # sys.exit(1)
-            self.any_error = True
-            self.error_msg = f'==> Clip {count} convert failed.'
         else:
-            print(
-                f'\n==> Clip {count} convert done. Mp4 file saved to {output}.')
+            logging.info(
+                f'Clip {count} convert done. Mp4 file saved to {output.name}.')
             file.unlink()
+
+    def check_ready_for_recording(self):
+        for key, values in self.usb_status.items():
+            if not values['status']:
+                self.ready_for_recording = False
+                return
+            self.ready_for_recording = True
 
     def run(self):
         GPIO.setmode(GPIO.BCM)
         GPIO.setup(3, GPIO.IN)
 
-        show_msg = True
+        logging.info('PiGGCam starting ...')
+
         while True:
-            if not GPIO.input(3) and not self.any_error:
+            self.GGCam_init()
+
+            # check any diff
+            if self.usb_status_changed:
+                self.usb_status_changed_list = []
+                for key, values in self.usb_status.items():
+                    if values != self.last_usb_status[key]:
+                        self.usb_status_changed_list.append(key)
+
+                # check if everything is ready
+                self.check_ready_for_recording()
+
+                self.log_usb_status()
+                self.show_msg = True
+
+            self.last_usb_status = deepcopy(self.usb_status)
+
+            if not GPIO.input(3) and self.ready_for_recording:
                 self.record()
-                show_msg = not show_msg
             else:
-                if show_msg:
-                    if not self.any_error:
-                        print('\n==> Standby for recording ...')
-                    else:
-                        print(f'\n==> Error: {self.error_msg}')
-                    show_msg = not show_msg
+                if self.show_msg and self.ready_for_recording:
+                    logging.info('Standby for recording ...')
+                    self.show_msg = False
+
             time.sleep(1)
 
     def log_usb_status(self):
@@ -320,4 +337,4 @@ class GGCam():
 
 if __name__ == '__main__':
     a = GGCam()
-    a.test_run()
+    a.run()
