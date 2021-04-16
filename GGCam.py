@@ -21,6 +21,7 @@ class GGCam():
     show_msg = True
     usb_status_changed_list = []
     ready_for_recording = False
+    converting_video = 0
     
     def __init__(self):
         logging_format = '[%(asctime)s] %(levelname)s: %(message)s'
@@ -46,25 +47,23 @@ class GGCam():
             self.duration = config['duration']
             self.mount_folder = Path(config['mount_folder'])
             self.output_folder = Path(config['output_folder'])
-            self.partition_id = config['partition_id']
             self.fps = config['fps']
             self.resolution = config['resolution']
         except Exception as e:
-            # any_error = True
             logging.error(f'something wrong with config.py. {e.__class__}: {e}')
             logging.info('Exited.')
             # make a reset script for user
             sys.exit(1)
 
     def GGCam_init(self):
-        self.check_usb_partition_table()
-        if self.usb_status['partition_table']['status'] is None:
+        self.check_usb_partition_id()
+        if self.usb_status['partition_id']['status'] is None:
             self.usb_status = self.usb_status_initiated
-            self.usb_status['partition_table']['msg'] = 'No USB drive found. Please insert a USB drive.'
+            self.usb_status['partition_id']['msg'] = 'No USB drive found. Please insert a USB drive.'
             return
         
         if not self.usb_status['usb_drive_mounted']['status']:
-            self.adapt_fstab(self.usb_status['partition_table']['status'])
+            self.adapt_fstab(self.usb_status['partition_id']['status'])
 
         self.check_mount_folder()
         self.check_usb_mount()
@@ -73,7 +72,7 @@ class GGCam():
     @property
     def usb_status_initiated(self):
         return {
-            'partition_table': {
+            'partition_id': {
                 'status': None,
                 'msg': '',
             },
@@ -100,29 +99,37 @@ class GGCam():
 
 # ---------------------------------------------------------------------------------------
     # check if there is any USB drive and get USB drive partition table (gpt or dos)
-    def check_usb_partition_table(self):
-        cmd = f'sudo /usr/sbin/fdisk -l | grep -n4 {self.partition_id}'
+    def check_usb_partition_id(self):
+        cmd = f"sudo /usr/sbin/fdisk -l | grep -P '\d*(.\d)*G' | grep -P 'sd.*\W{2}'"
         try:
             output = check_output(
-                [cmd], timeout=3, stderr=STDOUT, shell=True).decode('utf8')
-            target = re.compile(r'Disklabel type: (.*)')
+                [cmd], timeout=3, stderr=STDOUT, shell=True).decode('utf8').strip()
+            target = re.compile(r'(sd[abc]\d{1})')
             result = target.search(output)
-            self.usb_status['partition_table']['msg'] = f'USB drive found. Partition table is : {result.group(1)}'
-            self.usb_status['partition_table']['status'] = result.group(1)
-            # self.adapt_fstab(result.group(1))
+            self.usb_status['partition_id']['msg'] = f'USB drive found. Partition id is : {result.group(1)}'
+            self.usb_status['partition_id']['status'] = result.group(1)
+            self.adapt_fstab(result.group(1))
         except Exception as e:
-            self.usb_status['partition_table']['status'] = None
-            self.usb_status['partition_table']['msg'] = f'No USB drive found. Please insert a USB drive.'
+            logging.debug(f'{e.__class__}: {e}')
+            self.usb_status['partition_id']['status'] = None
+            self.usb_status['partition_id']['msg'] = f'No USB drive found. Please insert a USB drive.'
 
-    def adapt_fstab(self, partition_table):
-        if partition_table == 'dos':
-            cmd = 'sudo cp -f ./fstab_dos /etc/fstab'
-        elif partition_table == 'gpt':
-            cmd = 'sudo cp -f ./fstab_gpt /etc/fstab'
+    def adapt_fstab(self, partition_id):
+        fstab_content = f'''proc            /proc           proc    defaults          0       0
+PARTUUID=3a90e54f-01  /boot           vfat    defaults          0       2
+PARTUUID=3a90e54f-02  /               ext4    defaults,noatime  0       1
+# a swapfile is not a swap partition, no line here
+#   use  dphys-swapfile swap[on|off]  for that
+/dev/{partition_id} /mnt/usb vfat auto,users,rw,uid=pi,gid=pi 0 0
+'''
+        with open('./fstab', 'w') as f:
+            f.write(fstab_content)
+       
+        cmd = 'sudo cp -f ./fstab /etc/fstab'
         cp = run(cmd, shell=True)
         if not cp.returncode:
             self.usb_status['try_adapt_fstab']['status'] = True
-            self.usb_status['try_adapt_fstab']['msg'] = f'modify /etc/fstab for {partition_table}'
+            self.usb_status['try_adapt_fstab']['msg'] = f'modify /etc/fstab for {partition_id}'
         else:
             self.usb_status['try_adapt_fstab']['msg'] = f'modify /etc/fstab failed.'
 
@@ -138,18 +145,18 @@ class GGCam():
 
     def check_usb_mount(self):
         cp = run(
-            f'mount -l | grep {self.partition_id}', shell=True, stdout=DEVNULL)
+            f"mount -l | grep {self.usb_status['partition_id']['status']}", shell=True, stdout=DEVNULL)
         if not cp.returncode:
             self.usb_status['usb_drive_mounted']['status'] = True
             self.usb_status['usb_drive_mounted']['msg'] = 'USB drive is mounted.'
             self.usb_status['try_mount_usb']['status'] = True
         else:
             self.usb_status['usb_drive_mounted']['status'] = False
-            self.usb_status['usb_drive_mounted']['msg'] = 'USB drive is not mounted.'
+            self.usb_status['usb_drive_mounted']['msg'] = 'USB drive is not mounted. Trying to mount ...'
             self.try_mount_usb()
 
     def try_mount_usb(self):
-        cp = run('sudo mount -a', shell=True, stdout=DEVNULL)
+        cp = run('sudo mount -a', shell=True, stdout=DEVNULL, stderr=DEVNULL)
         if not cp.returncode:
             self.usb_status['try_mount_usb']['status'] = True
             self.usb_status['try_mount_usb']['msg'] = 'USB drive mounted successfully'
@@ -158,10 +165,14 @@ class GGCam():
             self.usb_status['try_mount_usb']['msg'] = 'Can\'t mount usb drive, maybe some problem with /etc/fstab.'
 
     def check_output_folder(self):
+        if self.usb_status['try_mount_usb']['status'] == False:
+            return
+
         if not self.output_folder.exists():
             try:
                 self.output_folder.mkdir()
-            except PermissionError:
+            except PermissionError as e:
+                logging.debug(f'{e.__class__}: {e}')
                 self.usb_status['output_folder_exists']['msg'] = f'Can\'t create {self.output_folder} folder.'
                 return
             self.usb_status['output_folder_exists']['msg'] = f'{self.output_folder} created for output.'
@@ -218,11 +229,24 @@ class GGCam():
                 cam.wait_recording(0.9)
                 # time.sleep(0.8)
 
+    def clean_up_mp4box_log(self, MP4Box_temp_log, count):
+        with open(MP4Box_temp_log, 'r') as f:
+            lines = f.readlines()
+
+        target_pattern = re.compile(r'AVC Import results: (\d*) samples')
+        for line in lines:
+            if target_pattern.match(line):
+                logging.info(f'Clip {count} info: {line.strip()}')
+        
+        MP4Box_temp_log.unlink()
+
     def convert_video(self, file, timestamp, count):
+        self.converting_video += 1
         logging.info(f'Start converting Clip {count} ...')
         output = self.output_folder.joinpath(f'{timestamp}.mp4')
+        MP4Box_temp_log = Path(f'./logs/temp_log_{timestamp}')
         cp = run(
-            ["MP4Box", "-add", f'{file}:fps={self.fps}', output], stdout=DEVNULL)
+            ["MP4Box", "-add", f'{file}:fps={self.fps}', output], stdout=DEVNULL, stderr=open(MP4Box_temp_log, 'a'))
         if cp.returncode:
             logging.error(f'Clip {count} convert failed.')
             # sys.exit(1)
@@ -230,6 +254,12 @@ class GGCam():
             logging.info(
                 f'Clip {count} convert done. Mp4 file saved to {output.name}.')
             file.unlink()
+
+        self.converting_video -= 1
+        self.clean_up_mp4box_log(MP4Box_temp_log, count)
+
+        if GPIO.input(3) and self.converting_video == 0:
+            logging.info('Standby for recording ...')
 
     def check_ready_for_recording(self):
         for key, values in self.usb_status.items():
@@ -243,6 +273,7 @@ class GGCam():
         GPIO.setup(3, GPIO.IN)
 
         logging.info('PiGGCam starting ...')
+        logging.info(f'Video spec: {self.resolution} at {self.fps} fps, duration: {self.duration} secs')
 
         while True:
             self.GGCam_init()
@@ -262,7 +293,7 @@ class GGCam():
 
             self.last_usb_status = deepcopy(self.usb_status)
 
-            if not GPIO.input(3) and self.ready_for_recording:
+            if not GPIO.input(3) and self.ready_for_recording and self.converting_video == 0:
                 self.record()
             else:
                 if self.show_msg and self.ready_for_recording:
@@ -286,53 +317,7 @@ class GGCam():
     @property
     def usb_status_changed(self):
         return not self.usb_status == self.last_usb_status
-        
-    def test_record(self):
-        while 1:
-            if open('gpio', 'r').read():
-                print('\n==> Recording stopped.')
-                return
-            print('recording...')
-            time.sleep(1)
 
-    def test_run(self):
-        logging.info('PiGGCam starting ...')
-
-        while True:
-            # GPIO = str(open('gpio', 'r').read())
-
-            self.GGCam_init()
-
-            # check any diff, and change show_msg
-            # print(self.usb_status_changed)
-            if self.usb_status_changed:
-                self.usb_status_changed_list = []
-                for key, values in self.usb_status.items():
-                    # print(values, self.last_usb_status[key])
-                    # print(values == self.last_usb_status[key])
-                    if values != self.last_usb_status[key]:
-                        self.usb_status_changed_list.append(key)
-                # print(self.usb_status_changed_list)
-                self.show_msg = True
-            
-            self.last_usb_status = deepcopy(self.usb_status)
-
-            if self.show_msg:
-                self.log_usb_status()
-                self.show_msg = False
-
-            # cant record due to some errors
-            # if self.any_error and show_msg:
-            #     print(f'\n==> Error: {self.error_msg}')
-            #     show_msg = not show_msg
-
-            # # no error ready to record
-            # else:
-            #     if not GPIO:
-            #         self.test_record()
-            #         show_msg = not show_msg
-            #     if show_msg:
-            #         if not self.any_error:
-            #             print('\n==> Standby for recording ...')
-            #         show_msg = not show_msg
-            time.sleep(1)
+if __name__ == '__main__':
+    a = GGCam()
+    a.check_usb_partition_id()
