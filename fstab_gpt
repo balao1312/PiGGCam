@@ -3,4 +3,4 @@ PARTUUID=3a90e54f-01  /boot           vfat    defaults          0       2
 PARTUUID=3a90e54f-02  /               ext4    defaults,noatime  0       1
 # a swapfile is not a swap partition, no line here
 #   use  dphys-swapfile swap[on|off]  for that
-/dev/sda2 /mnt/usb exfat auto,nofail,noatime,users,rw,uid=pi,gid=pi 0 0
+/dev/sda2 /mnt/usb vfat auto,users,rw,uid=pi,gid=pi 0 0

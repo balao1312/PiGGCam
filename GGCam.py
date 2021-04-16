@@ -3,7 +3,7 @@ import picamera
 
 from config import config
 from datetime import datetime
-from subprocess import call, DEVNULL, check_output, STDOUT
+from subprocess import DEVNULL, check_output, STDOUT, run
 from pathlib import Path
 from copy import deepcopy
 import threading
@@ -68,7 +68,6 @@ class GGCam():
 
         self.check_mount_folder()
         self.check_usb_mount()
-        self.try_mount_succeeded_usb()
         self.check_output_folder()
 
     @property
@@ -89,7 +88,7 @@ class GGCam():
                 'status': False,
                 'msg': '',
             },
-            'try_mount_succeeded': {
+            'try_mount_usb': {
                 'status': None,
                 'msg': '',
             },
@@ -120,41 +119,43 @@ class GGCam():
             cmd = 'sudo cp -f ./fstab_dos /etc/fstab'
         elif partition_table == 'gpt':
             cmd = 'sudo cp -f ./fstab_gpt /etc/fstab'
-        exited_code = call(cmd, shell=True)
-        if not exited_code:
+        cp = run(cmd, shell=True)
+        if not cp.returncode:
             self.usb_status['try_adapt_fstab']['status'] = True
             self.usb_status['try_adapt_fstab']['msg'] = f'modify /etc/fstab for {partition_table}'
         else:
             self.usb_status['try_adapt_fstab']['msg'] = f'modify /etc/fstab failed.'
 
     def check_mount_folder(self):
-        exited_code = call(f'ls {self.mount_folder}',
+        cp = run(f'ls {self.mount_folder}',
                            shell=True, stdout=DEVNULL)
         self.usb_status['mount_folder_exists']['status'] = True
-        if not exited_code:
-            self.usb_status['mount_folder_exists']['msg'] = f'{self.mount_folder} already existed.'
+        if not cp.returncode:
+            self.usb_status['mount_folder_exists']['msg'] = f'{self.mount_folder} ready for mounting.'
         else:
-            call(f'sudo mkdir {self.mount_folder}', shell=True)
-            self.usb_status['mount_folder_exists']['msg'] = f'{self.mount_folder} created.'
+            run(f'sudo mkdir {self.mount_folder}', shell=True)
+            self.usb_status['mount_folder_exists']['msg'] = f'{self.mount_folder} created for mounting.'
 
     def check_usb_mount(self):
-        exited_code = call(
+        cp = run(
             f'mount -l | grep {self.partition_id}', shell=True, stdout=DEVNULL)
-        if not exited_code:
+        if not cp.returncode:
             self.usb_status['usb_drive_mounted']['status'] = True
             self.usb_status['usb_drive_mounted']['msg'] = 'USB drive is mounted.'
+            self.usb_status['try_mount_usb']['status'] = True
         else:
             self.usb_status['usb_drive_mounted']['status'] = False
             self.usb_status['usb_drive_mounted']['msg'] = 'USB drive is not mounted.'
+            self.try_mount_usb()
 
-    def try_mount_succeeded_usb(self):
-        exited_code = call('sudo mount -a', shell=True, stdout=DEVNULL)
-        if not exited_code:
-            self.usb_status['try_mount_succeeded']['status'] = True
-            self.usb_status['try_mount_succeeded']['msg'] = 'USB drive mounted successfully'
+    def try_mount_usb(self):
+        cp = run('sudo mount -a', shell=True, stdout=DEVNULL)
+        if not cp.returncode:
+            self.usb_status['try_mount_usb']['status'] = True
+            self.usb_status['try_mount_usb']['msg'] = 'USB drive mounted successfully'
         else:
-            self.usb_status['try_mount_succeeded']['status'] = False
-            self.usb_status['try_mount_succeeded']['msg'] = 'Can\'t mount usb drive, maybe some problem with /etc/fstab.'
+            self.usb_status['try_mount_usb']['status'] = False
+            self.usb_status['try_mount_usb']['msg'] = 'Can\'t mount usb drive, maybe some problem with /etc/fstab.'
 
     def check_output_folder(self):
         if not self.output_folder.exists():
@@ -175,9 +176,9 @@ class GGCam():
         def start_recording_session():
             self.clip_count += 1
             self.clip_start_time = datetime.now()
+            cam.start_recording(str(self.h264_files['recording']))
             self.timestamp_filename = self.clip_start_time.strftime(
                 '%Y%m%d_%H-%M-%S')
-            cam.start_recording(str(self.h264_files['recording']))
             logging.info(
                 f'Start recording clip {self.clip_count} at {self.clip_start_time.strftime("%Y-%m-%d %H:%M:%S")}, duration: {self.duration} secs')
 
@@ -214,14 +215,15 @@ class GGCam():
                     start_recording_session()
 
                 cam.annotate_text = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                cam.wait_recording(0.1)
-                time.sleep(0.9)
+                cam.wait_recording(0.9)
+                # time.sleep(0.8)
 
     def convert_video(self, file, timestamp, count):
+        logging.info(f'Start converting Clip {count} ...')
         output = self.output_folder.joinpath(f'{timestamp}.mp4')
-        exited_code = call(
-            ["MP4Box", "-add", f'{file}:fps={self.fps}', output], stdout=DEVNULL, stderr=DEVNULL)
-        if exited_code:
+        cp = run(
+            ["MP4Box", "-add", f'{file}:fps={self.fps}', output], stdout=DEVNULL)
+        if cp.returncode:
             logging.error(f'Clip {count} convert failed.')
             # sys.exit(1)
         else:
@@ -334,7 +336,3 @@ class GGCam():
             #             print('\n==> Standby for recording ...')
             #         show_msg = not show_msg
             time.sleep(1)
-
-if __name__ == '__main__':
-    a = GGCam()
-    a.run()
