@@ -1,4 +1,4 @@
-import RPi.GPIO as GPIO
+import gpiozero
 import picamera
 
 from config import config
@@ -22,11 +22,12 @@ class GGCam():
     usb_status_changed_list = []
     ready_for_recording = False
     converting_video = 0
+    button = gpiozero.Button(3)
     
     def __init__(self):
         logging_format = '[%(asctime)s] %(levelname)s: %(message)s'
         logging_datefmt = '%Y-%m-%d %H:%M:%S'
-        logging.basicConfig(level=logging.INFO, format=logging_format, datefmt=logging_datefmt,
+        logging.basicConfig(level=logging.DEBUG, format=logging_format, datefmt=logging_datefmt,
             handlers=[logging.FileHandler(f'./logs/{datetime.now().strftime("%Y-%m-%d")}.log'), logging.StreamHandler()])
 
         self.load_config_from_file()
@@ -202,8 +203,9 @@ PARTUUID=3a90e54f-02  /               ext4    defaults,noatime  0       1
             start_recording_session()
 
             while True:
-                if GPIO.input(3):
-                    logging.info('Button pressed for stop recording.')
+                if not self.button.is_pressed:
+                    logging.debug('Button released.')
+                    logging.info('Stop recording ...')
                     cam.stop_recording()
                     th_2 = threading.Thread(target=self.convert_video, args=(
                         self.h264_files['recording'], self.timestamp_filename, self.clip_count))
@@ -258,7 +260,7 @@ PARTUUID=3a90e54f-02  /               ext4    defaults,noatime  0       1
         self.converting_video -= 1
         self.clean_up_mp4box_log(MP4Box_temp_log, count)
 
-        if GPIO.input(3) and self.converting_video == 0:
+        if not self.button.is_pressed and self.converting_video == 0:
             logging.info('Standby for recording ...')
 
     def check_ready_for_recording(self):
@@ -269,9 +271,6 @@ PARTUUID=3a90e54f-02  /               ext4    defaults,noatime  0       1
             self.ready_for_recording = True
 
     def run(self):
-        GPIO.setmode(GPIO.BCM)
-        GPIO.setup(3, GPIO.IN)
-
         logging.info('PiGGCam starting ...')
         logging.info(f'Video spec: {self.resolution} at {self.fps} fps, duration: {self.duration} secs')
 
@@ -293,7 +292,8 @@ PARTUUID=3a90e54f-02  /               ext4    defaults,noatime  0       1
 
             self.last_usb_status = deepcopy(self.usb_status)
 
-            if not GPIO.input(3) and self.ready_for_recording and self.converting_video == 0:
+            if self.button.is_pressed and self.ready_for_recording and self.converting_video == 0:
+                logging.debug('button pressed.')
                 self.record()
             else:
                 if self.show_msg and self.ready_for_recording:
