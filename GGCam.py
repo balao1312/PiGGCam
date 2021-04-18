@@ -14,7 +14,6 @@ import re
 
 
 class GGCam():
-
     clip_count = 0
     clip_start_time = None
     timestamp_filename = None
@@ -58,9 +57,10 @@ class GGCam():
 
     def GGCam_init(self):
         self.check_usb_partition_id()
+
         if self.usb_status['partition_id']['status'] is None:
+            self.log_usb_status()
             self.usb_status = self.usb_status_initiated
-            self.usb_status['partition_id']['msg'] = 'No USB drive found. Please insert a USB drive.'
             return
         
         if not self.usb_status['usb_drive_mounted']['status']:
@@ -69,6 +69,8 @@ class GGCam():
         self.check_mount_folder()
         self.check_usb_mount()
         self.check_output_folder()
+        
+        self.log_usb_status()
 
     @property
     def usb_status_initiated(self):
@@ -111,9 +113,9 @@ class GGCam():
             self.usb_status['partition_id']['status'] = result.group(1)
             self.adapt_fstab(result.group(1))
         except Exception as e:
-            logging.debug(f'{e.__class__}: {e}')
+            # logging.debug(f'{e.__class__}: {e}')
             self.usb_status['partition_id']['status'] = None
-            self.usb_status['partition_id']['msg'] = f'No USB drive found. Please insert a USB drive.'
+            self.usb_status['partition_id']['msg'] = f'No USB drive found. Please insert a USB drive.\n\t{e.__class__}:{e}'
 
     def adapt_fstab(self, partition_id):
         fstab_content = f'''proc            /proc           proc    defaults          0       0
@@ -121,7 +123,7 @@ PARTUUID=3a90e54f-01  /boot           vfat    defaults          0       2
 PARTUUID=3a90e54f-02  /               ext4    defaults,noatime  0       1
 # a swapfile is not a swap partition, no line here
 #   use  dphys-swapfile swap[on|off]  for that
-/dev/{partition_id} /mnt/usb vfat auto,user,noatime,rw,uid=pi,gid=pi 0 0
+/dev/{partition_id} /mnt/usb vfat auto,user,nofail,noatime,rw,uid=pi,gid=pi 0 0
 '''
         with open('./fstab', 'w') as f:
             f.write(fstab_content)
@@ -270,6 +272,33 @@ PARTUUID=3a90e54f-02  /               ext4    defaults,noatime  0       1
                 return
             self.ready_for_recording = True
 
+    def log_usb_status(self):
+        # check any diff
+        if self.usb_status_changed:
+            self.usb_status_changed_list = []
+            for key, values in self.usb_status.items():
+                if values != self.last_usb_status[key]:
+                    self.usb_status_changed_list.append(key)
+
+            for key, values in self.usb_status.items():
+                if not key in self.usb_status_changed_list:
+                    continue
+                if not values['msg']:
+                    continue
+
+                if values['status']:
+                    logging.info(values['msg'])
+                else:
+                    logging.error(values['msg'])
+
+            self.show_msg = True
+
+        self.last_usb_status = deepcopy(self.usb_status)
+
+    @property
+    def usb_status_changed(self):
+        return not self.usb_status == self.last_usb_status
+
     def run(self):
         logging.info('PiGGCam starting ...')
         logging.info(f'Video spec: {self.resolution} at {self.fps} fps, duration: {self.duration} secs')
@@ -277,23 +306,11 @@ PARTUUID=3a90e54f-02  /               ext4    defaults,noatime  0       1
         while True:
             self.GGCam_init()
 
-            # check any diff
-            if self.usb_status_changed:
-                self.usb_status_changed_list = []
-                for key, values in self.usb_status.items():
-                    if values != self.last_usb_status[key]:
-                        self.usb_status_changed_list.append(key)
-
-                # check if everything is ready
-                self.check_ready_for_recording()
-
-                self.log_usb_status()
-                self.show_msg = True
-
-            self.last_usb_status = deepcopy(self.usb_status)
+            # check if everything is ready
+            self.check_ready_for_recording()
 
             if self.button.is_pressed and self.ready_for_recording and self.converting_video == 0:
-                logging.debug('button pressed.')
+                logging.debug('Button pressed for start recording.')
                 self.record()
             else:
                 if self.show_msg and self.ready_for_recording:
@@ -301,22 +318,6 @@ PARTUUID=3a90e54f-02  /               ext4    defaults,noatime  0       1
                     self.show_msg = False
 
             time.sleep(1)
-
-    def log_usb_status(self):
-        for key, values in self.usb_status.items():
-            if not key in self.usb_status_changed_list:
-                continue
-            if not values['msg']:
-                continue
-
-            if values['status']:
-                logging.info(values['msg'])
-            else:
-                logging.error(values['msg'])
-
-    @property
-    def usb_status_changed(self):
-        return not self.usb_status == self.last_usb_status
 
 if __name__ == '__main__':
     a = GGCam()
