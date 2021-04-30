@@ -4,5 +4,5 @@ config = {
     'output_folder': '/mnt/usb/videos',
     'fps': 30, 
     'resolution': (1920, 1080)
-    # 'resolution': (1280, 720)
+    #'resolution': (1280, 720)
 }

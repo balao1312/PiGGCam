@@ -103,7 +103,7 @@ class GGCam():
 # ---------------------------------------------------------------------------------------
     # check if there is any USB drive and get USB drive partition table (gpt or dos)
     def check_usb_partition_id(self):
-        cmd = f"sudo /usr/sbin/fdisk -l | grep -P '\d*(.\d)*G' | grep -P 'sd.*\W{2}'"
+        cmd = f"sudo /usr/sbin/fdisk -l | grep -P 'sd[abc]\d' | grep -P '\d*(.\d)*G'"
         try:
             output = check_output(
                 [cmd], timeout=3, stderr=STDOUT, shell=True).decode('utf8').strip()
@@ -111,7 +111,7 @@ class GGCam():
             result = target.search(output)
             self.usb_status['partition_id']['msg'] = f'USB drive found. Partition id is : {result.group(1)}'
             self.usb_status['partition_id']['status'] = result.group(1)
-            self.adapt_fstab(result.group(1))
+            self.adapt_fstab(result.group(1).strip())
         except Exception as e:
             # logging.debug(f'{e.__class__}: {e}')
             self.usb_status['partition_id']['status'] = None
