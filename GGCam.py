@@ -30,9 +30,14 @@ class GGCam():
             handlers=[logging.FileHandler(f'./logs/{datetime.now().strftime("%Y-%m-%d")}.log'), logging.StreamHandler()])
 
         self.load_config_from_file()
+
+        self.temp_h264_folder = Path('./temp')
+        if not self.temp_h264_folder.exists():
+            self.temp_h264_folder.mkdir()
+
         self.h264_files = {
-            'recording': self.mount_folder.joinpath('temp.h264'),
-            'done': self.mount_folder.joinpath('temp_2.h264')
+            'recording': Path('./temp/temp1.h264'),
+            'done': Path('./temp/temp2.h264'),
         }
 
         self.usb_status = self.usb_status_initiated
@@ -113,9 +118,9 @@ class GGCam():
             self.usb_status['partition_id']['status'] = result.group(1)
             self.adapt_fstab(result.group(1).strip())
         except Exception as e:
-            # logging.debug(f'{e.__class__}: {e}')
             self.usb_status['partition_id']['status'] = None
-            self.usb_status['partition_id']['msg'] = f'No USB drive found. Please insert a USB drive.\n\t{e.__class__}:{e}'
+            self.usb_status['partition_id']['msg'] = f'No USB drive found. Please insert a USB drive.'
+            logging.debug(f'{e.__class__}: {e}')
 
     def adapt_fstab(self, partition_id):
         fstab_content = f'''proc            /proc           proc    defaults          0       0
@@ -159,7 +164,7 @@ PARTUUID=3a90e54f-02  /               ext4    defaults,noatime  0       1
             self.try_mount_usb()
 
     def try_mount_usb(self):
-        cp = run('sudo mount -a', shell=True, stdout=DEVNULL, stderr=DEVNULL)
+        cp = run(f'sudo umount -l {self.mount_folder}; sudo mount -a', shell=True, stdout=DEVNULL, stderr=DEVNULL)
         if not cp.returncode:
             self.usb_status['try_mount_usb']['status'] = True
             self.usb_status['try_mount_usb']['msg'] = 'USB drive mounted successfully'
