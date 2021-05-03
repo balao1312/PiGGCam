@@ -1,12 +1,15 @@
 from subprocess import DEVNULL, check_output, STDOUT, run
 from datetime import datetime
 from copy import deepcopy
+from pathlib import Path
 import logging
 import re
 
 
 class Usb_check():
     usb_status_changed_list = []
+    mount_folder = Path('/mnt/usb')
+    output_folder = mount_folder.joinpath('videos')
 
     def __init__(self):
         self.usb_status = self.usb_status_initiated
@@ -130,16 +133,20 @@ PARTUUID=3a90e54f-02  /               ext4    defaults,noatime  0       1
         if not self.output_folder.exists():
             try:
                 self.output_folder.mkdir()
+                self.usb_status['output_folder_exists']['status'] = True
             except PermissionError as e:
                 logging.debug(f'{e.__class__}: {e}')
                 self.usb_status['output_folder_exists']['msg'] = f'Can\'t create {self.output_folder} folder.'
                 return
             self.usb_status['output_folder_exists']['msg'] = f'{self.output_folder} created for output.'
-        self.usb_status['output_folder_exists']['status'] = True
+        else:
+            self.usb_status['output_folder_exists']['status'] = True
+            self.usb_status['output_folder_exists']['msg'] = f'{self.output_folder} already exists.'
+
         
     def log_usb_status(self):
         # check any diff
-        if self.usb_status_changed:
+        if self.is_usb_status_changed:
             self.usb_status_changed_list = []
             for key, values in self.usb_status.items():
                 if values != self.last_usb_status[key]:
@@ -156,17 +163,15 @@ PARTUUID=3a90e54f-02  /               ext4    defaults,noatime  0       1
                 else:
                     logging.error(values['msg'])
 
-            self.show_msg = True
-
         self.last_usb_status = deepcopy(self.usb_status)
 
-    def check_ready_for_recording(self):
+    @property
+    def is_ready_for_recording(self):
         for key, values in self.usb_status.items():
             if not values['status']:
-                self.ready_for_recording = False
-                return
-            self.ready_for_recording = True
+                return False
+            return True
         
     @property
-    def usb_status_changed(self):
+    def is_usb_status_changed(self):
         return not self.usb_status == self.last_usb_status

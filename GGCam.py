@@ -20,10 +20,8 @@ class GGCam():
     clip_start_time = None
     timestamp_filename = None
     show_msg = True
-    ready_for_recording = False
     converting_video = 0
     button = gpiozero.Button(3)
-    mount_folder = '/mnt/usb'
     
     def __init__(self):
         logging_format = '[%(asctime)s] %(levelname)s: %(message)s'
@@ -32,6 +30,12 @@ class GGCam():
             handlers=[logging.FileHandler(f'./logs/{datetime.now().strftime("%Y-%m-%d")}.log'), logging.StreamHandler()])
 
         self.load_config_from_file()
+
+        if self.output_folder == '/home/pi/videos':
+            self.output_mode = 'sd card'
+        elif self.output_folder == '/mnt/usb/videos':
+            self.output_mode = 'usb'
+
 
         self.temp_h264_folder = Path('./temp')
         if not self.temp_h264_folder.exists():
@@ -46,6 +50,9 @@ class GGCam():
         if not self.log_folder.exists():
             self.log_folder.mkdir()
         
+        if not self.output_folder.exists():
+            self.output_folder.mkdir()
+
         self.usb_checker = Usb_check()
     
     def load_config_from_file(self):
@@ -147,20 +154,30 @@ class GGCam():
         logging.info(f'Video spec: {self.resolution} at {self.fps} fps, duration: {self.duration} secs')
 
         while True:
-            self.usb_checker.usb_check()
+            if self.output_folder == Path('/mnt/usb/videos'):
+                self.usb_checker.usb_check()
 
-            # check if everything is ready
-            self.check_ready_for_recording()
+                if self.usb_checker.is_usb_status_changed:
+                    self.show_msg = True
 
-            if self.button.is_pressed and self.ready_for_recording and self.converting_video == 0:
-                logging.debug('Button pressed for start recording.')
-                self.record()
-            else:
-                if self.show_msg and self.ready_for_recording:
-                    logging.info('Standby for recording ...')
-                    self.show_msg = False
+                if self.button.is_pressed and self.usb_checker.is_ready_for_recording and self.converting_video == 0:
+                    logging.debug('Button pressed for start recording.')
+                    self.record()
+                else:
+                    if self.show_msg and self.usb_checker.is_ready_for_recording:
+                        logging.info('Standby for recording ...')
+                        self.show_msg = False
 
-            time.sleep(1)
+            elif self.output_folder == Path('/home/pi/videos'):
+                if self.button.is_pressed and self.converting_video == 0:
+                    logging.debug('Button pressed for start recording.')
+                    self.record()
+                else:
+                    if self.show_msg :
+                        logging.info('Standby for recording ...')
+                        self.show_msg = False
+
+            time.sleep(2)
 
 if __name__ == '__main__':
     pass

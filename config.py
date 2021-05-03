@@ -1,1 +1,1 @@
-config = {"fps": 30, "resolution": [1920, 1080], "duration": 60, "output_folder": "/home/pi/videos"}
+config = {"fps": 30, "resolution": [1920, 1080], "duration": 600, "output_folder": "/home/pi/videos"}
