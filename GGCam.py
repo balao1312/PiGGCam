@@ -51,7 +51,7 @@ class GGCam():
         try:
             self.duration = config['duration']
             self.mount_folder = Path(config['mount_folder'])
-            self.output_folder = Path(config['output_folder'])
+            self.output_folder = Path('./videos') # Path(config['output_folder'])
             self.fps = config['fps']
             self.resolution = config['resolution']
         except Exception as e:
@@ -164,7 +164,7 @@ PARTUUID=3a90e54f-02  /               ext4    defaults,noatime  0       1
             self.try_mount_usb()
 
     def try_mount_usb(self):
-        cp = run(f'sudo umount -l {self.mount_folder}; sudo mount -a', shell=True, stdout=DEVNULL, stderr=DEVNULL)
+        cp = run(f'sudo mount -a', shell=True, stdout=DEVNULL, stderr=DEVNULL)
         if not cp.returncode:
             self.usb_status['try_mount_usb']['status'] = True
             self.usb_status['try_mount_usb']['msg'] = 'USB drive mounted successfully'
