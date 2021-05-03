@@ -22,6 +22,7 @@ class GGCam():
     ready_for_recording = False
     converting_video = 0
     button = gpiozero.Button(3)
+    mount_folder = '/mnt/usb'
     
     def __init__(self):
         logging_format = '[%(asctime)s] %(levelname)s: %(message)s'
@@ -50,7 +51,6 @@ class GGCam():
     def load_config_from_file(self):
         try:
             self.duration = config['duration']
-            self.mount_folder = Path(config['mount_folder'])
             self.output_folder = Path('./videos') # Path(config['output_folder'])
             self.fps = config['fps']
             self.resolution = config['resolution']
