@@ -51,7 +51,7 @@ class GGCam():
     def load_config_from_file(self):
         try:
             self.duration = config['duration']
-            self.output_folder = Path('./videos') # Path(config['output_folder'])
+            self.output_folder = Path(config['output_folder'])
             self.fps = config['fps']
             self.resolution = config['resolution']
         except Exception as e:
