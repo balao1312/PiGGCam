@@ -25,7 +25,8 @@ class Usb_check():
             'mount_folder_exists': {
                 'status': False,
                 'msg': '',
-            }, 'try_adapt_fstab': {
+            }, 
+            'try_adapt_fstab': {
                 'status': False,
                 'msg': '',
             },
@@ -170,7 +171,7 @@ PARTUUID=3a90e54f-02  /               ext4    defaults,noatime  0       1
         for key, values in self.usb_status.items():
             if not values['status']:
                 return False
-            return True
+        return True
         
     @property
     def is_usb_status_changed(self):

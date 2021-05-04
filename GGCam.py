@@ -31,12 +31,6 @@ class GGCam():
 
         self.load_config_from_file()
 
-        if self.output_folder == '/home/pi/videos':
-            self.output_mode = 'sd card'
-        elif self.output_folder == '/mnt/usb/videos':
-            self.output_mode = 'usb'
-
-
         self.temp_h264_folder = Path('./temp')
         if not self.temp_h264_folder.exists():
             self.temp_h264_folder.mkdir()
