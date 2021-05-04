@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 
-import json
+import pprint
 
 # resulotion
 res_dic = {
@@ -9,23 +9,24 @@ res_dic = {
     '3': ((1280, 720), 30),
 }
 
-print('==> Video resolution choices:\n\n\t1: 1920x1080,30p\n\t2: 1280x720,60p\n\t3: 1280x720,30p.\n')
+print('==> Video resolution choices:\n\t1: 1920x1080,30p\n\t2: 1280x720,60p\n\t3: 1280x720,30p\n')
 while 1:
-    resolution_choice = input('Your choice: ')
+    resolution_choice = input('\tYour choice: ')
 
     if resolution_choice in ['1', '2', '3']:
         break
     else:
         print('Please input 1, 2, or 3.')
 
-print(f'resolution selected: {res_dic[resolution_choice]}')
+print(f'==> resolution selected: {res_dic[resolution_choice]}')
+print('=' * 80)
 
 
 # duration
-print('\n==> Please input duration(secs) of each clips:\n')
+print('==> Please input duration(secs) of each clips.')
 while 1:
     try:
-        duration = int(input('duration(secs): '))
+        duration = int(input('\tduration(secs): '))
         if duration < 1:
             print('value must be positive and non zero.')
             continue
@@ -34,13 +35,14 @@ while 1:
         print('value is not interger')
         continue
 
-print(f'duration: {duration} secs')
+print(f'==> duration: {duration} secs')
+print('=' * 80)
 
 
 # output file location
-print('\n==> Please choose where to save output files:\n\t1: sd card\n\t2: usb drive.\n')
+print('==> Please choose where to save output files:\n\t1: sd card\n\t2: usb drive.\n')
 while 1:
-    output_choice = input('output_location: ')
+    output_choice = input('\toutput_location: ')
     if output_choice in ['1', '2']:
         break
     else:
@@ -48,7 +50,8 @@ while 1:
         continue
 
 output_location = '/home/pi/videos' if output_choice == '1' else '/mnt/usb/videos'
-print(f'output videos will save to: {output_location}')
+print(f'==> output videos will save to: {output_location}')
+print('=' * 80)
 
 
 config = {
@@ -59,6 +62,7 @@ config = {
 }
 
 with open('config.py', 'w') as f:
-    f.write(f'config = {json.dumps(config)}')
+    f.write(f'config = {pprint.pformat(config)}')
 
-print('\nSetting updated.')
+print('Setting updated.')
+print('=' * 80)
