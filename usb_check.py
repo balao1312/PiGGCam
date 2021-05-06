@@ -61,7 +61,6 @@ class Usb_check():
 
         self.log_usb_status()
     
-    # check if there is any USB drive and get USB drive partition table (gpt or dos)
     def check_usb_partition_id(self):
         cmd = f"sudo /usr/sbin/fdisk -l | grep -P 'sd[abc]\d' | grep -P '\d*(.\d)*G'"
         try:
@@ -143,7 +142,6 @@ PARTUUID=3a90e54f-02  /               ext4    defaults,noatime  0       1
         else:
             self.usb_status['output_folder_exists']['status'] = True
             self.usb_status['output_folder_exists']['msg'] = f'{self.output_folder} already exists.'
-
         
     def log_usb_status(self):
         # check any diff
