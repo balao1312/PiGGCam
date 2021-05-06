@@ -49,6 +49,9 @@ class GGCam():
 
         self.usb_checker = Usb_check()
     
+    def __del__(self):
+        logging.info('program ended.')
+    
     def load_config_from_file(self):
         try:
             self.duration = config['duration']
@@ -57,8 +60,7 @@ class GGCam():
             self.resolution = config['resolution']
         except Exception as e:
             logging.error(f'something wrong with config.py. {e.__class__}: {e}')
-            logging.info('Exited.')
-            # make a reset script for user
+            logging.info(f'please run setup.py.')
             sys.exit(1)
 
     def swap_h264_set(self):
@@ -146,6 +148,7 @@ class GGCam():
     def run(self):
         logging.info('PiGGCam starting ...')
         logging.info(f'Video spec: {self.resolution} at {self.fps} fps, duration: {self.duration} secs')
+        logging.info(f'Video will save to {self.output_folder}')
 
         while True:
             if self.output_folder == Path('/mnt/usb/videos'):
