@@ -49,8 +49,8 @@ class GGCam():
 
         self.usb_checker = Usb_check()
     
-    def __del__(self):
-        logging.info('program ended.')
+    # def __del__(self):
+    #     logging.info('program ended.')
     
     def load_config_from_file(self):
         try:
@@ -65,6 +65,15 @@ class GGCam():
 
     def swap_h264_set(self):
         self.h264_files['recording'], self.h264_files['done'] = self.h264_files['done'], self.h264_files['recording']
+
+    @property
+    def disk_usage(self):
+        cmd = "df | grep -P root | awk '{print $5}'"
+        try:
+            output = check_output([cmd], stderr=STDOUT, shell=True).decode('utf8').strip()
+            return int(output[:-1])
+        except Exception as e:
+            logging.error(f'something wrong with disk_usage. {e.__class__}: {e}')
 
     def record(self):
         def start_recording_session():
@@ -85,17 +94,27 @@ class GGCam():
             start_recording_session()
 
             while True:
-                if not self.button.is_pressed:
-                    logging.debug('Button released.')
-                    logging.info('Stop recording ...')
+                if self.disk_usage > 98:
                     cam.stop_recording()
-                    th_2 = threading.Thread(target=self.convert_video, args=(
+                    logging.info(f'Disk usage is almost full. program exited')
+                    th_3 = threading.Thread(target=self.convert_video, args=(
                         self.h264_files['recording'], self.timestamp_filename, self.clip_count))
-                    th_2.start()
-                    th_2.join()
-                    return
+                    th_3.start()
+                    th_3.join()
+                    sys.exit(1)
+
+                # if not self.button.is_pressed:
+                #     logging.debug('Button released.')
+                #     logging.info('Stop recording ...')
+                #     cam.stop_recording()
+                #     th_2 = threading.Thread(target=self.convert_video, args=(
+                #         self.h264_files['recording'], self.timestamp_filename, self.clip_count))
+                #     th_2.start()
+                #     th_2.join()
+                #     return
 
                 if (datetime.now() - self.clip_start_time).seconds >= self.duration:
+                    logging.debug(f'Disk usage: {self.disk_usage}')
                     cam.stop_recording()
 
                     # swap recording file and done recored file refference
@@ -166,7 +185,11 @@ class GGCam():
                         self.show_msg = False
 
             elif self.output_folder == Path('/home/pi/videos'):
-                if self.button.is_pressed and self.converting_video == 0:
+                if self.disk_usage >= 98:
+                    logging.error('Disk usage full, exited.')
+                    return
+                #if self.button.is_pressed and self.converting_video == 0:
+                if self.converting_video == 0:
                     logging.debug('Button pressed for start recording.')
                     self.record()
                 else:
@@ -177,4 +200,5 @@ class GGCam():
             time.sleep(2)
 
 if __name__ == '__main__':
-    pass
+    aa = GGCam()
+    # print(aa.disk_usage)
