@@ -10,7 +10,7 @@ if __name__ == '__main__':
         runner.run()
     except KeyboardInterrupt:
         print('\n==> Interrupted.')
-        runner.__del__()
+        runner.GGCam_exit()
         try:
             print('\n==> Exited')
             sys.exit(0)
