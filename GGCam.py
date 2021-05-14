@@ -34,6 +34,18 @@ class GGCam():
         handlers=[logging.FileHandler(f'./logs/{datetime.now().strftime("%Y-%m-%d")}.log'), logging.StreamHandler()])
     
     def __init__(self):
+        self.log_folder = Path('./logs')
+        if not self.log_folder.exists():
+            self.log_folder.mkdir()
+
+        logging_file = self.log_folder.joinpath(
+            f'{datetime.now().strftime("%Y-%m-%d")}.log')
+
+        logging_format = '[%(asctime)s] %(levelname)s: %(message)s'
+        logging_datefmt = '%Y-%m-%d %H:%M:%S'
+        logging.basicConfig(level=logging.DEBUG, format=logging_format, datefmt=logging_datefmt,
+            handlers=[logging.FileHandler(logging_file), logging.StreamHandler()])
+
         self.load_config_from_file()
 
         self.temp_h264_folder = Path('./temp')
@@ -44,10 +56,6 @@ class GGCam():
             'recording': Path('./temp/temp1.h264'),
             'done': Path('./temp/temp2.h264'),
         }
-
-        self.log_folder = Path('./logs')
-        if not self.log_folder.exists():
-            self.log_folder.mkdir()
         
         if not self.output_folder.exists():
             self.output_folder.mkdir()
@@ -156,7 +164,6 @@ class GGCam():
 
                 cam.annotate_text = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                 cam.wait_recording(0.9)
-                # time.sleep(0.8)
 
     def clean_up_mp4box_log(self, MP4Box_temp_log, count):
         with open(MP4Box_temp_log, 'r') as f:
@@ -232,4 +239,4 @@ class GGCam():
 
 if __name__ == '__main__':
     aa = GGCam()
-    # print(aa.disk_usage)
+    print(aa.disk_usage)
