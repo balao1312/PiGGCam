@@ -44,6 +44,13 @@ class GGCam():
         # config stuff
         self.load_config_from_file()
 
+        self.led_standby.on()
+    
+    def logging_file_renew(self):
+        self.logging_file = self.log_folder.joinpath(
+            f'{datetime.now().strftime("%Y-%m-%d")}.log')
+    
+    def set_output_config(self):
         # output folder check: sd card or usb
         if self.output_location == 'sd card':
             self.output_folder = Path('/home/pi/videos')
@@ -55,6 +62,7 @@ class GGCam():
                 self.temp_h264_folder.mkdir()
 
         elif self.output_location == 'usb drive':
+            self.usb_checker = Usb_check()
             self.output_folder = Path('/mnt/usb/videos')
 
             self.temp_h264_folder = Path('/mnt/usb/temp')
@@ -66,13 +74,6 @@ class GGCam():
             'done': self.temp_h264_folder.joinpath('temp2.h264'),
         }
 
-        self.usb_checker = Usb_check()
-
-        self.led_standby.on()
-    
-    def logging_file_renew(self):
-        self.logging_file = self.log_folder.joinpath(
-            f'{datetime.now().strftime("%Y-%m-%d")}.log')
     
     def GGCam_exit(self):
         logging.info('program ended.')
@@ -220,6 +221,7 @@ class GGCam():
     def run(self):
         logging.info('PiGGCam starting ...')
         logging.info(f'Video spec: {self.resolution} at {self.fps} fps, duration: {self.duration} secs')
+        self.set_output_config()
         logging.info(f'Video will save to {self.output_folder}')
 
         while True:
