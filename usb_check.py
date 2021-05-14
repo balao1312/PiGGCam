@@ -74,7 +74,6 @@ class Usb_check():
         except Exception as e:
             self.usb_status['partition_id']['status'] = None
             self.usb_status['partition_id']['msg'] = f'No USB drive found. Please insert a USB drive.'
-            logging.debug(f'{e.__class__}: {e}')
 
     def adapt_fstab(self, partition_id):
         fstab_content = f'''proc            /proc           proc    defaults          0       0

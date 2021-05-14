@@ -111,6 +111,8 @@ class GGCam():
 
 
     def record(self):
+        self.show_msg = False
+
         def start_recording_session():
             self.recording = True
             self.clip_count += 1
