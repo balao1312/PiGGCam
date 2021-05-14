@@ -42,34 +42,34 @@ class GGCam():
         logging.basicConfig(level=logging.DEBUG, format=logging_format, datefmt=logging_datefmt,
             handlers=[logging.FileHandler(logging_file), logging.StreamHandler()])
 
-        # temp h264 file location
-        self.temp_h264_folder = Path('./temp')
-        if not self.temp_h264_folder.exists():
-            self.temp_h264_folder.mkdir()
-
-        self.h264_files = {
-            'recording': Path('./temp/temp1.h264'),
-            'done': Path('./temp/temp2.h264'),
-        }
-
         # config stuff
         self.load_config_from_file()
 
-        # output folder check
+        # output folder check: sd card or usb
         if self.output_location == 'sd card':
             self.output_folder = Path('/home/pi/videos')
             if not self.output_folder.exists():
                 self.output_folder.mkdir()
+            
+            self.temp_h264_folder = Path('./temp')
+            if not self.temp_h264_folder.exists():
+                self.temp_h264_folder.mkdir()
 
         elif self.output_location == 'usb drive':
             self.output_folder = Path('/mnt/usb/videos')
 
+            self.temp_h264_folder = Path('/mnt/usb/temp')
+            if not self.temp_h264_folder.exists():
+                self.temp_h264_folder.mkdir()
+
+        self.h264_files = {
+            'recording': self.temp_h264_folder.joinpath('temp1.h264'),
+            'done': self.temp_h264_folder.joinpath('temp2.h264'),
+        }
+
         self.usb_checker = Usb_check()
 
         self.led_standby.on()
-
-        th_blink = threading.Thread(target=self.blink_led)
-        th_blink.start()
     
     def GGCam_exit(self):
         logging.info('program ended.')
@@ -99,7 +99,7 @@ class GGCam():
             logging.error(f'something wrong with disk_usage. {e.__class__}: {e}')
     
     def blink_led(self):
-        logging.debug('ready to blink')
+        logging.debug('led ready to blink')
         while 1:
             if self.recording:
                 self.led_recording.on()
@@ -109,9 +109,12 @@ class GGCam():
             else:
                 time.sleep(1)
 
-
     def record(self):
+        # avoiding show two times standby msg if directly into record process from program start
         self.show_msg = False
+
+        th_blink = threading.Thread(target=self.blink_led)
+        th_blink.start()
 
         def start_recording_session():
             self.recording = True
@@ -154,7 +157,7 @@ class GGCam():
                     return
 
                 if (datetime.now() - self.clip_start_time).seconds >= self.duration:
-                    logging.debug(f'Disk usage: {self.disk_usage}')
+                    logging.debug(f'Disk usage: {self.disk_usage}%')
                     cam.stop_recording()
                     self.recording = False
 
@@ -166,7 +169,7 @@ class GGCam():
                         self.h264_files['done'], self.timestamp_filename, self.clip_count))
                     th_1.start()
 
-                    # record with another file for no delay
+                    # record another clip
                     start_recording_session()
 
                 cam.annotate_text = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
