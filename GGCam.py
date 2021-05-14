@@ -92,14 +92,24 @@ class GGCam():
     def swap_h264_set(self):
         self.h264_files['recording'], self.h264_files['done'] = self.h264_files['done'], self.h264_files['recording']
 
-    @property
-    def disk_usage(self):
-        cmd = "df | grep -P root | awk '{print $5}'"
+    def check_disk_usage(self):
+        if self.output_location == 'usb drive':
+            partition_id = self.usb_checker.usb_status['partition_id']['status']
+            cmd = f"df | grep -P {partition_id} | awk '{{print $5}}'"
+        elif self.output_location == 'sd card':
+            cmd = "df | grep -P root | awk '{print $5}'"
+
         try:
             output = check_output([cmd], stderr=STDOUT, shell=True).decode('utf8').strip()
-            return int(output[:-1])
+            self.disk_usage = int(output[:-1])
         except Exception as e:
             logging.error(f'something wrong with disk_usage. {e.__class__}: {e}')
+        
+        logging.debug(f'Output disk usage is {self.disk_usage} %')
+
+        if self.disk_usage >= 98:
+            logging.error(f'Disk usage is almost full. stop recording.')
+            self.disk_usage_full = True
     
     def blink_led(self):
         logging.debug('led ready to blink')
@@ -113,12 +123,6 @@ class GGCam():
                 time.sleep(1)
 
     def record(self):
-        # avoiding show two times standby msg if directly into record process from program start
-        self.show_msg = False
-
-        th_blink = threading.Thread(target=self.blink_led)
-        th_blink.start()
-
         def start_recording_session():
             self.recording = True
             self.clip_count += 1
@@ -133,6 +137,16 @@ class GGCam():
             cam.stop_recording()
             self.recording = False
 
+        # avoiding show two times standby msg if directly into record process from program start
+        self.show_msg = False
+
+        self.check_disk_usage()
+        if self.disk_usage_full:
+            return
+
+        th_blink = threading.Thread(target=self.blink_led)
+        th_blink.start()
+
         with picamera.PiCamera() as cam:
             cam.resolution = self.resolution
             cam.annotate_background = picamera.Color('black')
@@ -142,16 +156,6 @@ class GGCam():
             start_recording_session()
 
             while True:
-                if self.disk_usage > 98:
-                    stop_recording_session()
-                    logging.error(f'Disk usage is almost full. stop recording.')
-                    th_3 = threading.Thread(target=self.convert_video, args=(
-                        self.h264_files['recording'], self.timestamp_filename, self.clip_count))
-                    th_3.start()
-                    th_3.join()
-                    self.disk_usage_full = True
-                    # TODO error led on
-
                 if not self.button.is_pressed:
                     logging.debug('Button released.')
                     logging.info('Stop recording ...')
@@ -164,8 +168,8 @@ class GGCam():
 
                 if (datetime.now() - self.clip_start_time).seconds >= self.duration:
                     self.logging_file_renew()
+                    self.check_disk_usage()
 
-                    logging.debug(f'Output disk usage: {self.disk_usage}%')
                     stop_recording_session()
 
                     # swap recording file and done recored file refference
@@ -229,7 +233,7 @@ class GGCam():
                 if self.usb_checker.is_usb_status_changed:
                     self.show_msg = True
 
-                if self.button.is_pressed and self.usb_checker.is_ready_for_recording and self.converting_video == 0:
+                if self.button.is_pressed and self.usb_checker.is_ready_for_recording and self.converting_video == 0 and not self.disk_usage_full:
                     logging.debug('Button pressed.')
                     self.record()
                 else:
@@ -238,13 +242,7 @@ class GGCam():
                         self.show_msg = False
 
             elif self.output_location == 'sd card':
-                if self.disk_usage >= 98:
-                    logging.error('Disk usage full, please check destination disk.')
-                    self.disk_usage_full = True
-                    # TODO turn error led on
-                    continue
-
-                if self.button.is_pressed and self.converting_video == 0:
+                if self.button.is_pressed and self.converting_video == 0 and not self.disk_usage_full:
                     logging.debug('Button pressed for start recording.')
                     self.record()
                 else:
