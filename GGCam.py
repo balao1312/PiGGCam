@@ -27,13 +27,9 @@ class GGCam():
     led_standby = gpiozero.LED(24)
     led_recording = gpiozero.LED(4)
     recording = False
-
-    logging_format = '[%(asctime)s] %(levelname)s: %(message)s'
-    logging_datefmt = '%Y-%m-%d %H:%M:%S'
-    logging.basicConfig(level=logging.DEBUG, format=logging_format, datefmt=logging_datefmt,
-        handlers=[logging.FileHandler(f'./logs/{datetime.now().strftime("%Y-%m-%d")}.log'), logging.StreamHandler()])
     
     def __init__(self):
+        # logging stuff
         self.log_folder = Path('./logs')
         if not self.log_folder.exists():
             self.log_folder.mkdir()
@@ -46,8 +42,7 @@ class GGCam():
         logging.basicConfig(level=logging.DEBUG, format=logging_format, datefmt=logging_datefmt,
             handlers=[logging.FileHandler(logging_file), logging.StreamHandler()])
 
-        self.load_config_from_file()
-
+        # temp h264 file location
         self.temp_h264_folder = Path('./temp')
         if not self.temp_h264_folder.exists():
             self.temp_h264_folder.mkdir()
@@ -56,11 +51,21 @@ class GGCam():
             'recording': Path('./temp/temp1.h264'),
             'done': Path('./temp/temp2.h264'),
         }
-        
-        if not self.output_folder.exists():
-            self.output_folder.mkdir()
+
+        # config stuff
+        self.load_config_from_file()
+
+        # output folder check
+        if self.output_location == 'sd card':
+            self.output_folder = Path('/home/pi/videos')
+            if not self.output_folder.exists():
+                self.output_folder.mkdir()
+
+        elif self.output_location == 'usb drive':
+            self.output_folder = Path('/mnt/usb/videos')
 
         self.usb_checker = Usb_check()
+
         self.led_standby.on()
 
         th_blink = threading.Thread(target=self.blink_led)
@@ -73,7 +78,7 @@ class GGCam():
     def load_config_from_file(self):
         try:
             self.duration = config['duration']
-            self.output_folder = Path(config['output_folder'])
+            self.output_location = config['output_location']  # sd card or usb drive
             self.fps = config['fps']
             self.resolution = config['resolution']
         except Exception as e:
@@ -128,7 +133,7 @@ class GGCam():
                 if self.disk_usage > 98:
                     cam.stop_recording()
                     self.recording = False
-                    logging.info(f'Disk usage is almost full. program exited')
+                    logging.error(f'Disk usage is almost full. stop recording.')
                     th_3 = threading.Thread(target=self.convert_video, args=(
                         self.h264_files['recording'], self.timestamp_filename, self.clip_count))
                     th_3.start()
@@ -206,21 +211,21 @@ class GGCam():
                 time.sleep(2)
                 continue
 
-            if self.output_folder == Path('/mnt/usb/videos'):
+            if self.output_location == 'usb drive':
                 self.usb_checker.usb_check()
 
                 if self.usb_checker.is_usb_status_changed:
                     self.show_msg = True
 
                 if self.button.is_pressed and self.usb_checker.is_ready_for_recording and self.converting_video == 0:
-                    logging.debug('Button pressed for start recording.')
+                    logging.debug('Button pressed.')
                     self.record()
                 else:
                     if self.show_msg and self.usb_checker.is_ready_for_recording:
                         logging.info('Standby for recording ...')
                         self.show_msg = False
 
-            elif self.output_folder == Path('/home/pi/videos'):
+            elif self.output_location == 'sd card':
                 if self.disk_usage >= 98:
                     logging.error('Disk usage full, please check destination disk.')
                     self.disk_usage_full = True

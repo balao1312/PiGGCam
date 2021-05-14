@@ -49,7 +49,7 @@ while 1:
         print('Please input 1, or 2.')
         continue
 
-output_location = '/home/pi/videos' if output_choice == '1' else '/mnt/usb/videos'
+output_location = 'sd card' if output_choice == '1' else 'usb drive'
 print(f'==> output videos will save to: {output_location}')
 print('=' * 80)
 
@@ -58,7 +58,7 @@ config = {
     'fps': res_dic[resolution_choice][1],
     'resolution': res_dic[resolution_choice][0],
     'duration': duration,
-    'output_folder': output_location,
+    'output_location': output_location,
 }
 
 with open('config.py', 'w') as f:
