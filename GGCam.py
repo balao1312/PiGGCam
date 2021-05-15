@@ -44,6 +44,9 @@ class GGCam():
         # config stuff
         self.load_config_from_file()
 
+        if self.output_location == 'usb drive':
+            self.usb_checker = Usb_check()
+
         self.led_standby.on()
     
     def logging_file_renew(self):
@@ -56,24 +59,15 @@ class GGCam():
             self.output_folder = Path('/home/pi/videos')
             if not self.output_folder.exists():
                 self.output_folder.mkdir()
-            
-            self.temp_h264_folder = Path('./temp')
-            if not self.temp_h264_folder.exists():
-                self.temp_h264_folder.mkdir()
 
         elif self.output_location == 'usb drive':
-            self.usb_checker = Usb_check()
             self.output_folder = Path('/mnt/usb/videos')
-
-            self.temp_h264_folder = Path('/mnt/usb/temp')
-            if not self.temp_h264_folder.exists():
-                self.temp_h264_folder.mkdir()
-
+        
+        self.temp_h264_folder = Path('/mnt/ramdisk')
         self.h264_files = {
             'recording': self.temp_h264_folder.joinpath('temp1.h264'),
             'done': self.temp_h264_folder.joinpath('temp2.h264'),
         }
-
     
     def GGCam_exit(self):
         logging.info('program ended.')
@@ -204,7 +198,7 @@ class GGCam():
         output = self.output_folder.joinpath(f'{timestamp}.mp4')
         MP4Box_temp_log = Path(f'./logs/temp_log_{timestamp}')
         cp = run(
-            ["MP4Box", "-add", f'{file}:fps={self.fps}', output], stdout=DEVNULL, stderr=open(MP4Box_temp_log, 'a'))
+            ["MP4Box", "-tmp", "/mnt/ramdisk", "-add", f'{file}:fps={self.fps}', output], stdout=DEVNULL, stderr=open(MP4Box_temp_log, 'a'))
         if cp.returncode:
             logging.error(f'Clip {count} convert failed.')
         else:
@@ -219,9 +213,10 @@ class GGCam():
             logging.info('Standby for recording ...')
 
     def run(self):
+        self.set_output_config()
+
         logging.info('PiGGCam starting ...')
         logging.info(f'Video spec: {self.resolution} at {self.fps} fps, duration: {self.duration} secs')
-        self.set_output_config()
         logging.info(f'Video will save to {self.output_folder}')
 
         while True:

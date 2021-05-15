@@ -16,5 +16,5 @@ if __name__ == '__main__':
             sys.exit(0)
         except SystemExit:
             os._exit(0)
-    except Exception as e:
-        print(f'==> main func error: {e.__class__} {e}')
+    # except Exception as e:
+        # print(f'==> main func error: {e.__class__} {e}')
