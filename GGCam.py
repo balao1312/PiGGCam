@@ -107,7 +107,7 @@ class GGCam():
             self.disk_usage_full = True
     
     def blink_led(self):
-        logging.debug('led ready to blink')
+        logging.debug('led start blinking ...')
         while 1:
             if self.recording:
                 self.led_recording.on()
@@ -115,10 +115,16 @@ class GGCam():
                 self.led_recording.off()
                 time.sleep(0.5)
             else:
-                time.sleep(1)
+                break
+        logging.debug('led stop blinking ...')
 
     def record(self):
         def start_recording_session():
+            # check if disk is full before record
+            self.check_disk_usage()
+            if self.disk_usage_full:
+                return
+
             self.recording = True
             self.clip_count += 1
             self.clip_start_time = datetime.now()
@@ -127,6 +133,9 @@ class GGCam():
                 '%Y%m%d_%H-%M-%S')
             logging.info(
                 f'Start recording clip {self.clip_count} at {self.clip_start_time.strftime("%Y-%m-%d %H:%M:%S")}, duration: {self.duration} secs')
+            
+            th_blink = threading.Thread(target=self.blink_led)
+            th_blink.start()
         
         def stop_recording_session():
             cam.stop_recording()
@@ -134,13 +143,6 @@ class GGCam():
 
         # avoiding show two times standby msg if directly into record process from program start
         self.show_msg = False
-
-        self.check_disk_usage()
-        if self.disk_usage_full:
-            return
-
-        th_blink = threading.Thread(target=self.blink_led)
-        th_blink.start()
 
         with picamera.PiCamera() as cam:
             cam.resolution = self.resolution
@@ -151,6 +153,9 @@ class GGCam():
             start_recording_session()
 
             while True:
+                if self.disk_usage_full:
+                    return
+
                 if not self.button.is_pressed:
                     logging.debug('Button released.')
                     logging.info('Stop recording ...')
@@ -162,10 +167,9 @@ class GGCam():
                     return
 
                 if (datetime.now() - self.clip_start_time).seconds >= self.duration:
-                    self.logging_file_renew()
-                    self.check_disk_usage()
-
                     stop_recording_session()
+
+                    self.logging_file_renew()
 
                     # swap recording file and done recored file refference
                     self.swap_h264_set()
@@ -218,7 +222,7 @@ class GGCam():
         logging.info('PiGGCam starting ...')
         logging.info(f'Video spec: {self.resolution} at {self.fps} fps, duration: {self.duration} secs')
         logging.info(f'Video will save to {self.output_folder}')
-
+                
         while True:
             if self.disk_usage_full:
                 time.sleep(2)
@@ -234,7 +238,7 @@ class GGCam():
                     logging.debug('Button pressed.')
                     self.record()
                 else:
-                    if self.show_msg and self.usb_checker.is_ready_for_recording:
+                    if self.show_msg and self.usb_checker.is_ready_for_recording and not self.disk_usage_full:
                         logging.info('Standby for recording ...')
                         self.show_msg = False
 
@@ -243,7 +247,7 @@ class GGCam():
                     logging.debug('Button pressed for start recording.')
                     self.record()
                 else:
-                    if self.show_msg :
+                    if self.show_msg and not self.disk_usage_full:
                         logging.info('Standby for recording ...')
                         self.show_msg = False
 
