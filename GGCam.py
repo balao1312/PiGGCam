@@ -36,11 +36,6 @@ class GGCam():
 
         self.logging_file_renew()
 
-        logging_format = '[%(asctime)s] %(levelname)s: %(message)s'
-        logging_datefmt = '%Y-%m-%d %H:%M:%S'
-        logging.basicConfig(level=logging.DEBUG, format=logging_format, datefmt=logging_datefmt,
-            handlers=[logging.FileHandler(self.logging_file), logging.StreamHandler()])
-
         # config stuff
         self.load_config_from_file()
 
@@ -48,10 +43,17 @@ class GGCam():
             self.usb_checker = Usb_check()
 
         self.led_standby.on()
+
+        th_blink = threading.Thread(target=self.blink_led)
+        th_blink.start()
     
     def logging_file_renew(self):
-        self.logging_file = self.log_folder.joinpath(
+        logging_file = self.log_folder.joinpath(
             f'{datetime.now().strftime("%Y-%m-%d")}.log')
+        logging_format = '[%(asctime)s] %(levelname)s: %(message)s'
+        logging_datefmt = '%Y-%m-%d %H:%M:%S'
+        logging.basicConfig(level=logging.DEBUG, format=logging_format, datefmt=logging_datefmt,
+            handlers=[logging.FileHandler(logging_file), logging.StreamHandler()])
     
     def set_output_config(self):
         # output folder check: sd card or usb
@@ -107,7 +109,7 @@ class GGCam():
             self.disk_usage_full = True
     
     def blink_led(self):
-        logging.debug('led start blinking ...')
+        logging.debug('led ready for blinking ...')
         while 1:
             if self.recording:
                 self.led_recording.on()
@@ -115,8 +117,7 @@ class GGCam():
                 self.led_recording.off()
                 time.sleep(0.5)
             else:
-                break
-        logging.debug('led stop blinking ...')
+                time.sleep(1)
 
     def record(self):
         def start_recording_session():
@@ -134,9 +135,6 @@ class GGCam():
             logging.info(
                 f'Start recording clip {self.clip_count} at {self.clip_start_time.strftime("%Y-%m-%d %H:%M:%S")}, duration: {self.duration} secs')
             
-            th_blink = threading.Thread(target=self.blink_led)
-            th_blink.start()
-        
         def stop_recording_session():
             cam.stop_recording()
             self.recording = False
@@ -226,6 +224,7 @@ class GGCam():
         while True:
             if self.disk_usage_full:
                 time.sleep(2)
+                # TODO error led
                 continue
 
             if self.output_location == 'usb drive':
