@@ -181,7 +181,7 @@ class GGCam():
                     start_recording_session()
 
                 cam.annotate_text = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                cam.wait_recording(0.9)
+                time.sleep(1)
 
     def clean_up_mp4box_log(self, MP4Box_temp_log, count):
         with open(MP4Box_temp_log, 'r') as f:
