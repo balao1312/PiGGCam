@@ -48,6 +48,10 @@ class GGCam():
         th_blink.start()
     
     def logging_file_renew(self):
+        logger = logging.getLogger()
+        for each in logger.handlers[:]:
+            logger.removeHandler(each)
+
         logging_file = self.log_folder.joinpath(
             f'{datetime.now().strftime("%Y-%m-%d")}.log')
         logging_format = '[%(asctime)s] %(levelname)s: %(message)s'
@@ -254,4 +258,3 @@ class GGCam():
 
 if __name__ == '__main__':
     aa = GGCam()
-    print(aa.disk_usage)
