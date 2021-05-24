@@ -23,12 +23,12 @@ print('=' * 80)
 
 
 # duration
-print('==> Please input duration(secs) of each clips.')
+print('==> Please input duration(secs) of each clips.\n')
 while 1:
     try:
         duration = int(input('\tduration(secs): '))
-        if duration < 1:
-            print('value must be positive and non zero.')
+        if duration < 1 or duration > 900:
+            print('value must be positive ,non zero, and smaller than 900 (15min)')
             continue
         break
     except:
@@ -40,13 +40,14 @@ print('=' * 80)
 
 
 # output file location
-print('==> Please choose where to save output files:\n\t1: sd card\n\t2: usb drive.\n')
+print('==> Please choose where to save output files:\n\t1: sd card\n\t2: usb drive.')
+print('==> Note: Choose SD card may cause frame dropping issue.\n')
 while 1:
     output_choice = input('\toutput_location: ')
     if output_choice in ['1', '2']:
         break
     else:
-        print('Please input 1, or 2.')
+        print('Please input 1 or 2.')
         continue
 
 output_location = 'sd card' if output_choice == '1' else 'usb drive'
