@@ -5,7 +5,7 @@ from config import config
 from datetime import datetime
 from subprocess import DEVNULL, check_output, STDOUT, run
 from pathlib import Path
-from copy import deepcopy
+from copy import deepcopy, copy
 import threading
 import logging
 import time
@@ -70,10 +70,10 @@ class GGCam():
             self.output_folder = Path('/mnt/usb/videos')
         
         self.temp_h264_folder = Path('/mnt/ramdisk')
-        self.h264_files = {
-            'recording': self.temp_h264_folder.joinpath('temp1.h264'),
-            'done': self.temp_h264_folder.joinpath('temp2.h264'),
-        }
+        # self.h264_files = {
+        #     'recording': self.temp_h264_folder.joinpath('temp1.h264'),
+        #     'done': self.temp_h264_folder.joinpath('temp2.h264'),
+        # }
     
     def GGCam_exit(self):
         logging.info('program ended.')
@@ -90,8 +90,8 @@ class GGCam():
             logging.info(f'please run setup.py.')
             sys.exit(1)
 
-    def swap_h264_set(self):
-        self.h264_files['recording'], self.h264_files['done'] = self.h264_files['done'], self.h264_files['recording']
+    # def swap_h264_set(self):
+    #     self.h264_files['recording'], self.h264_files['done'] = self.h264_files['done'], self.h264_files['recording']
 
     def check_disk_usage(self):
         if self.output_location == 'usb drive':
@@ -124,20 +124,32 @@ class GGCam():
                 time.sleep(1)
 
     def record(self):
+        def clip_renew():
+            self.clip_count += 1
+            self.clip_start_time = datetime.now()
+            self.clip_start_time_string = self.clip_start_time.strftime(("%Y-%m-%d %H:%M:%S"))
+            self.clip_file_object = self.temp_h264_folder.joinpath(f'{self.clip_start_time_string}.h264') 
+
         def start_recording_session():
-            # check if disk is full before record
+            clip_renew()
+            self.recording = True
+            cam.start_recording(str(self.clip_file_object))
+            logging.info(
+                f'Start recording clip {self.clip_count} at {self.clip_start_time_string}, duration: {self.duration} secs')
+        
+        def split_recording():
             self.check_disk_usage()
             if self.disk_usage_full:
                 return
 
-            self.recording = True
-            self.clip_count += 1
-            self.clip_start_time = datetime.now()
-            cam.start_recording(str(self.h264_files['recording']))
-            self.timestamp_filename = self.clip_start_time.strftime(
-                '%Y%m%d_%H-%M-%S')
+            self.converting_clip_file_object = copy(self.clip_file_object)
+            clip_renew()
             logging.info(
-                f'Start recording clip {self.clip_count} at {self.clip_start_time.strftime("%Y-%m-%d %H:%M:%S")}, duration: {self.duration} secs')
+                f'Start recording clip {self.clip_count} at {self.clip_start_time_string}, duration: {self.duration} secs')
+            print('old', self.converting_clip_file_object)
+            print('now', self.clip_file_object)
+            cam.split_recording(str(self.clip_file_object))
+
             
         def stop_recording_session():
             cam.stop_recording()
@@ -169,12 +181,12 @@ class GGCam():
                     return
 
                 if (datetime.now() - self.clip_start_time).seconds >= self.duration:
-                    stop_recording_session()
+                    split_recording()
 
                     self.logging_file_renew()
 
                     # swap recording file and done recored file refference
-                    self.swap_h264_set()
+                    # self.swap_h264_set()
 
                     # start another thread to convert done recorded file
                     th_1 = threading.Thread(target=self.convert_video, args=(
@@ -182,7 +194,7 @@ class GGCam():
                     th_1.start()
 
                     # record another clip
-                    start_recording_session()
+                    # start_recording_session()
 
                 cam.annotate_text = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                 time.sleep(1)
@@ -198,7 +210,7 @@ class GGCam():
         
         MP4Box_temp_log.unlink()
 
-    def convert_video(self, file, timestamp, count):
+    def convert_video(self, file_object, timestamp, count):
         self.converting_video += 1
         logging.info(f'Start converting Clip {count} ...')
         output = self.output_folder.joinpath(f'{timestamp}.mp4')
@@ -233,6 +245,8 @@ class GGCam():
 
             if self.output_location == 'usb drive':
                 self.usb_checker.usb_check()
+
+                self.check_disk_usage()
 
                 if self.usb_checker.is_usb_status_changed:
                     self.show_msg = True
