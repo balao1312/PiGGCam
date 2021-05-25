@@ -7,17 +7,14 @@ import sys
 
 class PiGGCam_Config():
 
-    def clean_screen(self):
-        subprocess.run('clear')
-
-    def clean_deco(func):
+    def clear_screen(func):
         def wrapper(self, *arg, **kwarg):
-            self.clean_screen()
+            subprocess.run('clear')
             result = func(self, *arg, **kwarg)
             return result
         return wrapper
 
-    @clean_deco
+    @clear_screen
     def set_resolution(self):
         res_dic = {
             '1': ((1920, 1080), 30),
@@ -34,7 +31,7 @@ class PiGGCam_Config():
                 print('Please input 1, 2, or 3.')
         return res_dic[resolution_choice]
 
-    @clean_deco
+    @clear_screen
     def set_duration(self):
         print('Please input max duration(secs) of each clips.\n\t* range: 30 secs ~ 900 secs\n')
         while 1:
@@ -52,7 +49,7 @@ class PiGGCam_Config():
                 continue
         return duration
 
-    @clean_deco
+    @clear_screen
     def set_output_location(self):
         print('Please choose where to save output files:\n\n\t1: sd card\t* may cause frame dropping issue\n\t2: usb drive.\n')
         while 1:
@@ -64,7 +61,7 @@ class PiGGCam_Config():
                 continue
         return 'sd card' if output_choice == '1' else 'usb drive'
 
-    @clean_deco
+    @clear_screen
     def set_record_mode(self):
         print('Please choose record mode:\n\n\t1: non-stop recording\n\t2: motion detect recording.\n')
         while 1:
@@ -78,7 +75,7 @@ class PiGGCam_Config():
         self.record_mode = 'non-stop' if record_mode == '1' else 'motion'
         return self.record_mode
 
-    @clean_deco
+    @clear_screen
     def set_motion_interval(self):
         if self.record_mode == 'motion':
             print('Please input motion detection interverl(secs):\n')
@@ -100,7 +97,7 @@ class PiGGCam_Config():
         else:
             return 0
 
-    @clean_deco
+    @clear_screen
     def do_configure(self):
         resolution = self.set_resolution()
         self.config = {
@@ -112,7 +109,7 @@ class PiGGCam_Config():
             'motion_interval': self.set_motion_interval(),
         }
 
-    @clean_deco
+    @clear_screen
     def show_config(self):
         print(f'''Your configures are list below:
 
@@ -125,7 +122,7 @@ class PiGGCam_Config():
 
         ''')
 
-    @clean_deco
+    @clear_screen
     def run(self):
         while 1:
             self.do_configure()
