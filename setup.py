@@ -8,7 +8,7 @@ import sys
 class PiGGCam_Configger():
 
     def clean_screen(self):
-        cp = subprocess.run('clear')
+        subprocess.run('clear')
 
     def clean_deco(func):
         def wrapper(self, *arg, **kwarg):
@@ -32,7 +32,6 @@ class PiGGCam_Configger():
                 break
             else:
                 print('Please input 1, 2, or 3.')
-        print(res_dic[resolution_choice])
         return res_dic[resolution_choice]
 
     @clean_deco
@@ -42,20 +41,20 @@ class PiGGCam_Configger():
             try:
                 duration = int(input('\n\tduration(secs): '))
                 if duration < 30 or duration > 900:
-                    print('\nvalue must in range 30 ~ 900 secs')
+                    print('\nDuration value must in range 30 ~ 900 secs')
                     continue
                 break
             except KeyboardInterrupt:
                 print()
                 sys.exit()
             except:
-                print('value is not interger')
+                print('\nPlease input a number')
                 continue
         return duration
 
     @clean_deco
     def set_output_location(self):
-        print('Please choose where to save output files:\n\n\t1: sd card\t*may cause frame dropping issue.\n\t2: usb drive.\n')
+        print('Please choose where to save output files:\n\n\t1: sd card\t* may cause frame dropping issue.\n\t2: usb drive.\n')
         while 1:
             output_choice = input('\n\toutput_location: ')
             if output_choice in ['1', '2']:
@@ -88,14 +87,14 @@ class PiGGCam_Configger():
                 try:
                     motion_interval = int(input('\n\tintervals(secs): '))
                     if motion_interval < 60 or motion_interval > 300:
-                        print('\nvalue must be in range 60 secs ~ 300 secs')
+                        print('\nMotion detection interval must be in range 60 secs ~ 300 secs')
                         continue
                     break
                 except KeyboardInterrupt:
                     print()
                     sys.exit()
                 except:
-                    print('value is not interger')
+                    print('\nPlease input a number')
                     continue
             return motion_interval
         else:
