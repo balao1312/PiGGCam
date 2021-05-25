@@ -33,24 +33,34 @@ class GGCam():
     recording = False
     
     def __init__(self):
-        # logging stuff
         self.log_folder = Path('./logs')
         if not self.log_folder.exists():
             self.log_folder.mkdir()
 
         self.logging_file_renew()
 
-        # config stuff
         self.load_config_from_file()
-
-        # init usb
+        
         if self.output_location == 'usb drive':
             self.usb_checker = Usb_check()
 
         self.led_standby.on()
 
-        th_blink = threading.Thread(target=self.blink_led)
-        th_blink.start()
+        # create a thread for blinking led according to recording status
+        thread_blink = threading.Thread(target=self.blink_led)
+        thread_blink.start()
+
+        if self.record_mode == 'motion':
+            thread_motion_detect = threading.Thread(target=self.motion_detect)
+            thread_motion_detect.start() 
+
+    @property
+    def trigger(self):
+        if self.record_mode == 'non-stop':
+            return self.button.is_pressed
+        elif self.record_mode == 'motion':
+            return self.is_motion
+
     
     def logging_file_renew(self):
         # delete existing handler and renew, for log to new file if date changes
@@ -71,6 +81,8 @@ class GGCam():
             self.output_location = config['output_location']  # sd card or usb drive
             self.fps = config['fps']
             self.resolution = config['resolution']
+            self.record_mode = config['record_mode']
+            self.motion_interval = config['motion_interval']
         except Exception as e:
             logging.error(f'something wrong with config.py. {e.__class__}: {e}')
             logging.info(f'please run setup.py.')
@@ -105,6 +117,7 @@ class GGCam():
     def GGCam_exit(self):
         logging.info('program ended.')
         self.led_standby.off()
+        self.recording = False
     
     def check_disk_usage(self):
         if self.output_location == 'usb drive':
@@ -142,7 +155,7 @@ class GGCam():
         while 1:
             if self.pir.motion_detected:
                 if show_one_time:
-                    logging.info(f'Motion detected: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}, trigger is on')
+                    logging.info(f'Motion detected: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}')
                     show_one_time = False
 
                 self.last_motion_countdown = self.motion_interval 
@@ -151,7 +164,7 @@ class GGCam():
             if self.last_motion_countdown == 0:
                 show_one_time = True
                 if show_one_time:
-                    logging.info(f'No motion detected in {self.motion_interval} secs, trigger is off.')
+                    logging.info(f'No motion detected in {self.motion_interval} secs.')
 
                 self.is_motion = False
 
@@ -217,8 +230,8 @@ class GGCam():
                 if self.disk_usage_full:
                     return
 
-                if not self.button.is_pressed:
-                    logging.debug('Button released.')
+                if not self.trigger:
+                    logging.debug('Trigger is off.')
                     stop_recording_session()
                     return
 
@@ -248,7 +261,7 @@ class GGCam():
         self.converting_video -= 1
         self.clean_up_mp4box_log(MP4Box_temp_log, count)
 
-        if not self.button.is_pressed and self.converting_video == 0:
+        if not self.trigger and self.converting_video == 0:
             logging.info('Standby for recording ...')
 
     def clean_up_mp4box_log(self, MP4Box_temp_log, count):
@@ -268,6 +281,7 @@ class GGCam():
         logging.info('PiGGCam starting ...')
         logging.info(f'Video spec: {self.resolution} at {self.fps} fps, duration: {self.duration} secs')
         logging.info(f'Video will save to {self.output_folder}')
+        logging.info(f'Record mode is: {self.record_mode}')
                 
         while True:
             if self.disk_usage_full:
@@ -281,8 +295,8 @@ class GGCam():
                 if self.usb_checker.is_usb_status_changed:
                     self.show_msg = True
 
-                if self.button.is_pressed and self.usb_checker.is_ready_for_recording and self.converting_video == 0 and not self.disk_usage_full:
-                    logging.debug('Button pressed.')
+                if self.trigger and self.usb_checker.is_ready_for_recording and self.converting_video == 0 and not self.disk_usage_full:
+                    logging.debug('Trigger is on.')
                     self.record()
                 else:
                     if self.show_msg and self.usb_checker.is_ready_for_recording and not self.disk_usage_full:
@@ -290,7 +304,7 @@ class GGCam():
                         self.show_msg = False
 
             elif self.output_location == 'sd card':
-                if self.button.is_pressed and self.converting_video == 0 and not self.disk_usage_full:
+                if self.trigger and self.converting_video == 0 and not self.disk_usage_full:
                     logging.debug('Button pressed.')
                     self.record()
                 else:
@@ -299,7 +313,7 @@ class GGCam():
                         self.show_msg = False
 
             self.logging_file_renew()
-            time.sleep(2)
+            time.sleep(1)
 
 if __name__ == '__main__':
     aa = GGCam()
