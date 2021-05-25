@@ -5,7 +5,7 @@ import subprocess
 import sys
 
 
-class PiGGCam_Configger():
+class PiGGCam_Config():
 
     def clean_screen(self):
         subprocess.run('clear')
@@ -149,5 +149,5 @@ class PiGGCam_Configger():
 
 
 if __name__ == '__main__':
-    configger = PiGGCam_Configger()
-    configger.run()
+    configurer = PiGGCam_Config()
+    configurer.run()
