@@ -22,10 +22,14 @@ class GGCam():
     show_msg = True
     converting_video = 0
     disk_usage_full = False
+    motion_interval = 10
+    last_motion_countdown = motion_interval
+    is_motion = False
 
     button = gpiozero.Button(23)
     led_standby = gpiozero.LED(24)
     led_recording = gpiozero.LED(4)
+    pir = gpiozero.MotionSensor(21)
     recording = False
     
     def __init__(self):
@@ -122,7 +126,7 @@ class GGCam():
             self.disk_usage_full = True
     
     def blink_led(self):
-        logging.debug('led ready for blinking ...')
+        logging.debug('led_recording_status ready for blinking ...')
         while 1:
             if self.recording:
                 self.led_recording.on()
@@ -131,6 +135,31 @@ class GGCam():
                 time.sleep(0.5)
             else:
                 time.sleep(1)
+
+    def motion_detect(self):
+        logging.debug('PIR Motion detection started.')
+        show_one_time = True
+        while 1:
+            if self.pir.motion_detected:
+                if show_one_time:
+                    logging.info(f'Motion detected: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}, trigger is on')
+                    show_one_time = False
+
+                self.last_motion_countdown = self.motion_interval 
+                self.is_motion = True
+            
+            if self.last_motion_countdown == 0:
+                show_one_time = True
+                if show_one_time:
+                    logging.info(f'No motion detected in {self.motion_interval} secs, trigger is off.')
+
+                self.is_motion = False
+
+            # print(self.last_motion_countdown, self.is_motion)
+            if self.last_motion_countdown > -1:
+                self.last_motion_countdown -= 1
+
+            time.sleep(1)
 
     def record(self):
         def clip_renew():
@@ -271,3 +300,7 @@ class GGCam():
 
             self.logging_file_renew()
             time.sleep(2)
+
+if __name__ == '__main__':
+    aa = GGCam()
+    aa.motion_detect()
