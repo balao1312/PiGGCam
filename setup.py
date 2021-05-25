@@ -41,20 +41,20 @@ class PiGGCam_Config():
             try:
                 duration = int(input('\n\tduration(secs): '))
                 if duration < 30 or duration > 900:
-                    print('\nDuration value must in range 30 ~ 900 secs')
+                    print('\nDuration value must in range 30 ~ 900 secs.')
                     continue
                 break
             except KeyboardInterrupt:
                 print()
                 sys.exit()
             except:
-                print('\nPlease input a number')
+                print('\nPlease input a number.')
                 continue
         return duration
 
     @clean_deco
     def set_output_location(self):
-        print('Please choose where to save output files:\n\n\t1: sd card\t* may cause frame dropping issue.\n\t2: usb drive.\n')
+        print('Please choose where to save output files:\n\n\t1: sd card\t* may cause frame dropping issue\n\t2: usb drive.\n')
         while 1:
             output_choice = input('\n\toutput_location: ')
             if output_choice in ['1', '2']:
@@ -68,14 +68,14 @@ class PiGGCam_Config():
     def set_record_mode(self):
         print('Please choose record mode:\n\n\t1: non-stop recording\n\t2: motion detect recording.\n')
         while 1:
-            output_choice = input('\n\trecord mode: ')
-            if output_choice in ['1', '2']:
+            record_mode = input('\n\trecord mode: ')
+            if record_mode in ['1', '2']:
                 break
             else:
                 print('Please input 1 or 2.')
                 continue
 
-        self.record_mode = 'non-stop' if output_choice == '1' else 'motion'
+        self.record_mode = 'non-stop' if record_mode == '1' else 'motion'
         return self.record_mode
 
     @clean_deco
@@ -101,7 +101,7 @@ class PiGGCam_Config():
             return 0
 
     @clean_deco
-    def do_config(self):
+    def do_configure(self):
         resolution = self.set_resolution()
         self.config = {
             'resolution': resolution[0],
@@ -128,14 +128,14 @@ class PiGGCam_Config():
     @clean_deco
     def run(self):
         while 1:
-            self.do_config()
+            self.do_configure()
             self.show_config()
 
             is_confirmed = input('\tConfirm and Save? (y/n):')
             if is_confirmed == 'y':
                 break
             else:
-                do_reset = input('\n\tRedo config? (y/n):')
+                do_reset = input('\n\tRedo configuration? (y/n):')
                 if do_reset == 'y':
                     continue
                 else:
