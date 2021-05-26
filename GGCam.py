@@ -22,8 +22,6 @@ class GGCam():
     show_msg = True
     converting_video = 0
     disk_usage_full = False
-    motion_interval = 10
-    last_motion_countdown = motion_interval
     is_motion = False
 
     button = gpiozero.Button(23)
@@ -190,7 +188,7 @@ class GGCam():
             self.recording = True
             cam.start_recording(str(self.clip_file_object))
             logging.info(
-                f'Start recording clip {self.clip_count} at {self.clip_start_time.strftime("%Y-%m-%d %H:%M:%S")}, duration: {self.duration} secs')
+                f'Start recording clip {self.clip_count} at {self.clip_start_time.strftime("%Y-%m-%d %H:%M:%S")}, max duration: {self.duration} secs')
         
         def split_recording():
             self.check_disk_usage()
@@ -201,7 +199,7 @@ class GGCam():
             last_clip_count = self.clip_count
             clip_renew()
             logging.info(
-                f'Start recording clip {self.clip_count} at {self.clip_start_time.strftime("%Y-%m-%d %H:%M:%S")}, duration: {self.duration} secs')
+                f'Start recording clip {self.clip_count} at {self.clip_start_time.strftime("%Y-%m-%d %H:%M:%S")}, max duration: {self.duration} secs')
             cam.split_recording(str(self.clip_file_object))
 
             # start another thread to convert done recorded file
@@ -279,7 +277,7 @@ class GGCam():
         self.set_output_config()
 
         logging.info('PiGGCam starting ...')
-        logging.info(f'Video spec: {self.resolution} at {self.fps} fps, duration: {self.duration} secs')
+        logging.info(f'Video spec: {self.resolution} at {self.fps} fps, max duration: {self.duration} secs')
         logging.info(f'Video will save to {self.output_folder}')
         logging.info(f'Record mode is: {self.record_mode}')
                 
