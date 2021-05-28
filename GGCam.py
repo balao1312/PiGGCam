@@ -37,9 +37,10 @@ class GGCam():
             self.log_folder.mkdir()
 
         self.logging_file_renew()
-
         self.load_config_from_file()
-        
+        self.set_output_config()
+        self.clean_h264_folder()
+
         if self.output_location == 'usb drive':
             self.usb_checker = Usb_check()
 
@@ -57,13 +58,18 @@ class GGCam():
             thread_motion_detect = threading.Thread(target=self.motion_detect)
             thread_motion_detect.start() 
 
+    def clean_h264_folder(self):
+        for each_file in self.temp_h264_folder.iterdir():
+            each_file.unlink()
+
+        logging.debug('H264 folder cleaned.')
+
     @property
     def trigger(self):
         if self.record_mode == 'non-stop':
             return self.button.is_pressed
         elif self.record_mode == 'motion':
             return self.is_motion
-
     
     def logging_file_renew(self):
         # delete existing handler and renew, for log to new file if date changes
@@ -298,8 +304,6 @@ class GGCam():
         MP4Box_temp_log.unlink()
 
     def run(self):
-        self.set_output_config()
-
         logging.info('PiGGCam starting ...')
         logging.info(f'Video spec: {self.resolution} at {self.fps} fps, max duration: {self.duration} secs')
         logging.info(f'Video will save to {self.output_folder}')

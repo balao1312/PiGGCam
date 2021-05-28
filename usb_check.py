@@ -80,7 +80,7 @@ PARTUUID=3a90e54f-01  /boot           vfat    defaults          0       2
 PARTUUID=3a90e54f-02  /               ext4    defaults,noatime  0       1
 # a swapfile is not a swap partition, no line here
 #   use  dphys-swapfile swap[on|off]  for that
-tmpfs /mnt/ramdisk tmpfs nodev,nosuid,size=4G 0 0
+tmpfs /mnt/ramdisk tmpfs nodev,uid=pi,gid=pi,size=4G 0 0
 /dev/{partition_id} /mnt/usb auto auto,user,nofail,noatime,rw,uid=pi,gid=pi 0 0
 '''
         with open('./fstab', 'w') as f:
