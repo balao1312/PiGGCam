@@ -7,7 +7,6 @@ import re
 
 
 class Usb_check():
-    usb_status_changed_list = []
     mount_folder = Path('/mnt/usb')
     output_folder = mount_folder.joinpath('videos')
 

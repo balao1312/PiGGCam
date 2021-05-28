@@ -23,12 +23,13 @@ class GGCam():
     converting_video = 0
     disk_usage_full = False
     is_motion = False
+    is_recording = False
 
     button = gpiozero.Button(23)
     led_standby = gpiozero.LED(24)
-    led_recording = gpiozero.LED(4)
+    led_status = gpiozero.LED(4)
+    led_recording = gpiozero.LED(19)
     pir = gpiozero.MotionSensor(21)
-    recording = False
     
     def __init__(self):
         self.log_folder = Path('./logs')
@@ -45,8 +46,12 @@ class GGCam():
         self.led_standby.on()
 
         # create a thread for blinking led according to recording status
-        thread_blink = threading.Thread(target=self.blink_led)
-        thread_blink.start()
+        thread_blink_when_recording = threading.Thread(target=self.blink_led_when_recording)
+        thread_blink_when_recording.start()
+        
+        # create a thread for led according to converting or error status
+        thread_led_show_converting_or_error = threading.Thread(target=self.led_show_converting_or_error)
+        thread_led_show_converting_or_error.start()
 
         if self.record_mode == 'motion':
             thread_motion_detect = threading.Thread(target=self.motion_detect)
@@ -115,7 +120,8 @@ class GGCam():
     def GGCam_exit(self):
         logging.info('program ended.')
         self.led_standby.off()
-        self.recording = False
+        self.is_recording = False
+        self.led_status.off()
     
     def check_disk_usage(self):
         if self.output_location == 'usb drive':
@@ -135,11 +141,27 @@ class GGCam():
         if self.disk_usage >= 98:
             logging.error(f'Disk usage is almost full. stop recording.')
             self.disk_usage_full = True
-    
-    def blink_led(self):
-        logging.debug('led_recording_status ready for blinking ...')
+
+    def led_show_converting_or_error(self):
+        logging.debug('led for showing converting or error is ready.')
         while 1:
-            if self.recording:
+            if self.converting_video > 0:
+                self.led_status.on()
+                time.sleep(0.5)
+                self.led_status.off()
+                time.sleep(0.5)
+            else:
+                time.sleep(1)
+            
+            if self.disk_usage_full:
+                self.led_status.on()
+                while 1:
+                    time.sleep(10)
+                
+    def blink_led_when_recording(self):
+        logging.debug('led for recording status is ready.')
+        while 1:
+            if self.is_recording:
                 self.led_recording.on()
                 time.sleep(0.5)
                 self.led_recording.off()
@@ -149,6 +171,7 @@ class GGCam():
 
     def motion_detect(self):
         logging.debug('PIR Motion detection started.')
+        self.last_motion_countdown = self.motion_interval 
         show_one_time = True
         while 1:
             if self.pir.motion_detected:
@@ -185,7 +208,7 @@ class GGCam():
                 return
 
             clip_renew()
-            self.recording = True
+            self.is_recording = True
             cam.start_recording(str(self.clip_file_object))
             logging.info(
                 f'Start recording clip {self.clip_count} at {self.clip_start_time.strftime("%Y-%m-%d %H:%M:%S")}, max duration: {self.duration} secs')
@@ -210,7 +233,7 @@ class GGCam():
         def stop_recording_session():
             logging.info('Stop recording ...')
             cam.stop_recording()
-            self.recording = False
+            self.is_recording = False
             self.convert_video(self.clip_file_object, self.clip_count)
 
         # avoiding show two times standby msg if directly into record process from program start
@@ -226,6 +249,7 @@ class GGCam():
 
             while True:
                 if self.disk_usage_full:
+                    self.is_recording = False
                     return
 
                 if not self.trigger:
@@ -284,7 +308,6 @@ class GGCam():
         while True:
             if self.disk_usage_full:
                 time.sleep(2)
-                # TODO error led
                 continue
 
             if self.output_location == 'usb drive':
