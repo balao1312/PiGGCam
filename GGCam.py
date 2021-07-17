@@ -30,7 +30,7 @@ class GGCam():
     led_status = gpiozero.LED(4)
     led_recording = gpiozero.LED(19)
     pir = gpiozero.MotionSensor(21)
-    
+
     def __init__(self):
         self.log_folder = Path('./logs')
         if not self.log_folder.exists():
@@ -47,16 +47,18 @@ class GGCam():
         self.led_standby.on()
 
         # create a thread for blinking led according to recording status
-        thread_blink_when_recording = threading.Thread(target=self.blink_led_when_recording)
+        thread_blink_when_recording = threading.Thread(
+            target=self.blink_led_when_recording)
         thread_blink_when_recording.start()
-        
+
         # create a thread for led according to converting or error status
-        thread_led_show_converting_or_error = threading.Thread(target=self.led_show_converting_or_error)
+        thread_led_show_converting_or_error = threading.Thread(
+            target=self.led_show_converting_or_error)
         thread_led_show_converting_or_error.start()
 
         if self.record_mode == 'motion':
             thread_motion_detect = threading.Thread(target=self.motion_detect)
-            thread_motion_detect.start() 
+            thread_motion_detect.start()
 
     def clean_h264_folder(self):
         for each_file in self.temp_h264_folder.iterdir():
@@ -70,7 +72,7 @@ class GGCam():
             return self.button.is_pressed
         elif self.record_mode == 'motion':
             return self.is_motion
-    
+
     def logging_file_renew(self):
         # delete existing handler and renew, for log to new file if date changes
         logger = logging.getLogger()
@@ -82,18 +84,20 @@ class GGCam():
         logging_format = '[%(asctime)s] %(levelname)s: %(message)s'
         logging_datefmt = '%Y-%m-%d %H:%M:%S'
         logging.basicConfig(level=logging.DEBUG, format=logging_format, datefmt=logging_datefmt,
-            handlers=[logging.FileHandler(logging_file), logging.StreamHandler()])
-    
+                            handlers=[logging.FileHandler(logging_file), logging.StreamHandler()])
+
     def load_config_from_file(self):
         try:
             self.duration = config['duration']
-            self.output_location = config['output_location']  # sd card or usb drive
+            # sd card or usb drive
+            self.output_location = config['output_location']
             self.fps = config['fps']
             self.resolution = config['resolution']
             self.record_mode = config['record_mode']
             self.motion_interval = config['motion_interval']
         except Exception as e:
-            logging.error(f'something wrong with config.py. {e.__class__}: {e}')
+            logging.error(
+                f'something wrong with config.py. {e.__class__}: {e}')
             logging.info(f'please run setup.py.')
             sys.exit(1)
 
@@ -113,22 +117,22 @@ class GGCam():
 
         elif self.output_location == 'usb drive':
             self.output_folder = Path('/mnt/usb/videos')
-        
+
         # set recording h264 file folder
         self.temp_h264_folder = Path('/mnt/ramdisk')    # best sulotion
-        # self.temp_h264_folder = self.output_folder  # depends on output location 
+        # self.temp_h264_folder = self.output_folder  # depends on output location
         # self.temp_h264_folder = Path('/home/pi')  # may cause frame dropping
 
         # set converting temp file folder
         self.converting_temp_folder = Path('/mnt/ramdisk')  # best sulotion
         # self.converting_temp_folder = self.output_folder  # depends on output location
-    
+
     def GGCam_exit(self):
         logging.info('program ended.')
         self.led_standby.off()
         self.is_recording = False
         self.led_status.off()
-    
+
     def check_disk_usage(self):
         if self.output_location == 'usb drive':
             partition_id = self.usb_checker.usb_status['partition_id']['status']
@@ -137,11 +141,13 @@ class GGCam():
             cmd = "df | grep -P root | awk '{print $5}'"
 
         try:
-            output = check_output([cmd], stderr=STDOUT, shell=True).decode('utf8').strip()
+            output = check_output([cmd], stderr=STDOUT,
+                                  shell=True).decode('utf8').strip()
             self.disk_usage = int(output[:-1])
         except Exception as e:
-            logging.error(f'something wrong with checking disk_usage. {e.__class__}: {e}')
-        
+            logging.error(
+                f'something wrong with checking disk_usage. {e.__class__}: {e}')
+
         logging.debug(f'Output disk usage is {self.disk_usage} %')
 
         if self.disk_usage >= 98:
@@ -158,12 +164,12 @@ class GGCam():
                 time.sleep(0.5)
             else:
                 time.sleep(1)
-            
+
             if self.disk_usage_full:
                 self.led_status.on()
                 while 1:
                     time.sleep(10)
-                
+
     def blink_led_when_recording(self):
         logging.debug('led for recording status is ready.')
         while 1:
@@ -177,21 +183,23 @@ class GGCam():
 
     def motion_detect(self):
         logging.debug('PIR Motion detection started.')
-        self.last_motion_countdown = self.motion_interval 
+        self.last_motion_countdown = self.motion_interval
         show_one_time = True
         while 1:
             if self.pir.motion_detected:
                 if show_one_time:
-                    logging.info(f'Motion detected: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}')
+                    logging.info(
+                        f'Motion detected: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}')
                     show_one_time = False
 
-                self.last_motion_countdown = self.motion_interval 
+                self.last_motion_countdown = self.motion_interval
                 self.is_motion = True
-            
+
             if self.last_motion_countdown == 0:
                 show_one_time = True
                 if show_one_time:
-                    logging.info(f'No motion detected in {self.motion_interval} secs.')
+                    logging.info(
+                        f'No motion detected in {self.motion_interval} secs.')
 
                 self.is_motion = False
 
@@ -205,8 +213,10 @@ class GGCam():
         def clip_renew():
             self.clip_count += 1
             self.clip_start_time = datetime.now()
-            self.clip_start_time_string = self.clip_start_time.strftime(("%Y-%m-%d_%H_%M_%S"))
-            self.clip_file_object = self.temp_h264_folder.joinpath(f'{self.clip_start_time_string}.h264') 
+            self.clip_start_time_string = self.clip_start_time.strftime(
+                ("%Y-%m-%d_%H_%M_%S"))
+            self.clip_file_object = self.temp_h264_folder.joinpath(
+                f'{self.clip_start_time_string}.h264')
 
         def start_recording_session():
             self.check_disk_usage()
@@ -218,7 +228,7 @@ class GGCam():
             cam.start_recording(str(self.clip_file_object))
             logging.info(
                 f'Start recording clip {self.clip_count} at {self.clip_start_time.strftime("%Y-%m-%d %H:%M:%S")}, max duration: {self.duration} secs')
-        
+
         def split_recording():
             self.check_disk_usage()
             if self.disk_usage_full:
@@ -235,7 +245,7 @@ class GGCam():
             th_1 = threading.Thread(target=self.convert_video, args=(
                 self.done_recorded, last_clip_count))
             th_1.start()
-            
+
         def stop_recording_session():
             logging.info('Stop recording ...')
             cam.stop_recording()
@@ -300,15 +310,16 @@ class GGCam():
         for line in lines:
             if target_pattern.match(line):
                 logging.info(f'Clip {count} info: {line.strip()}')
-        
+
         MP4Box_temp_log.unlink()
 
     def run(self):
         logging.info('PiGGCam starting ...')
-        logging.info(f'Video spec: {self.resolution} at {self.fps} fps, max duration: {self.duration} secs')
+        logging.info(
+            f'Video spec: {self.resolution} at {self.fps} fps, max duration: {self.duration} secs')
         logging.info(f'Video will save to {self.output_folder}')
         logging.info(f'Record mode is: {self.record_mode}')
-                
+
         while True:
             if self.disk_usage_full:
                 time.sleep(2)
@@ -339,7 +350,3 @@ class GGCam():
 
             self.logging_file_renew()
             time.sleep(1)
-
-if __name__ == '__main__':
-    aa = GGCam()
-    aa.motion_detect()

@@ -84,7 +84,8 @@ class PiGGCam_Config():
                 try:
                     motion_interval = int(input('\n\tintervals(secs): '))
                     if motion_interval < 60 or motion_interval > 300:
-                        print('\nMotion detection interval must be in range 60 secs ~ 300 secs')
+                        print(
+                            '\nMotion detection interval must be in range 60 secs ~ 300 secs')
                         continue
                     break
                 except KeyboardInterrupt:

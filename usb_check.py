@@ -13,7 +13,7 @@ class Usb_check():
     def __init__(self):
         self.usb_status = self.usb_status_initiated
         self.last_usb_status = deepcopy(self.usb_status)
-    
+
     @property
     def usb_status_initiated(self):
         return {
@@ -24,7 +24,7 @@ class Usb_check():
             'mount_folder_exists': {
                 'status': False,
                 'msg': '',
-            }, 
+            },
             'try_adapt_fstab': {
                 'status': False,
                 'msg': '',
@@ -59,7 +59,7 @@ class Usb_check():
         self.check_output_folder()
 
         self.log_usb_status()
-    
+
     def check_usb_partition_id(self):
         cmd = f"sudo /usr/sbin/fdisk -l | grep -P 'sd[abc]\d' | grep -P '\d*(.\d)*G'"
         try:
@@ -67,7 +67,8 @@ class Usb_check():
                 [cmd], timeout=3, stderr=STDOUT, shell=True).decode('utf8').strip()
             target = re.compile(r'(sd[abc]\d{1})')
             result = target.search(output)
-            self.usb_status['partition_id']['msg'] = f'USB drive found. Partition id is : {result.group(1)}'
+            self.usb_status['partition_id'][
+                'msg'] = f'USB drive found. Partition id is : {result.group(1)}'
             self.usb_status['partition_id']['status'] = result.group(1)
             self.adapt_fstab(result.group(1).strip())
         except Exception as e:
@@ -85,18 +86,19 @@ tmpfs /mnt/ramdisk tmpfs nodev,uid=pi,gid=pi,size=4G 0 0
 '''
         with open('./fstab', 'w') as f:
             f.write(fstab_content)
-       
+
         cmd = 'sudo cp -f ./fstab /etc/fstab'
         cp = run(cmd, shell=True)
         if not cp.returncode:
             self.usb_status['try_adapt_fstab']['status'] = True
-            self.usb_status['try_adapt_fstab']['msg'] = f'modify /etc/fstab for {partition_id}'
+            self.usb_status['try_adapt_fstab'][
+                'msg'] = f'modify /etc/fstab for {partition_id}'
         else:
             self.usb_status['try_adapt_fstab']['msg'] = f'modify /etc/fstab failed.'
 
     def check_mount_folder(self):
         cp = run(f'ls {self.mount_folder}',
-                           shell=True, stdout=DEVNULL)
+                 shell=True, stdout=DEVNULL)
         self.usb_status['mount_folder_exists']['status'] = True
         if not cp.returncode:
             self.usb_status['mount_folder_exists']['msg'] = f'{self.mount_folder} ready for mounting.'
@@ -135,13 +137,14 @@ tmpfs /mnt/ramdisk tmpfs nodev,uid=pi,gid=pi,size=4G 0 0
                 self.usb_status['output_folder_exists']['status'] = True
             except PermissionError as e:
                 logging.debug(f'{e.__class__}: {e}')
-                self.usb_status['output_folder_exists']['msg'] = f'Can\'t create {self.output_folder} folder.'
+                self.usb_status['output_folder_exists'][
+                    'msg'] = f'Can\'t create {self.output_folder} folder.'
                 return
             self.usb_status['output_folder_exists']['msg'] = f'{self.output_folder} created for output.'
         else:
             self.usb_status['output_folder_exists']['status'] = True
             self.usb_status['output_folder_exists']['msg'] = f'{self.output_folder} already exists.'
-        
+
     def log_usb_status(self):
         # check any diff
         if self.is_usb_status_changed:
@@ -169,7 +172,7 @@ tmpfs /mnt/ramdisk tmpfs nodev,uid=pi,gid=pi,size=4G 0 0
             if not values['status']:
                 return False
         return True
-        
+
     @property
     def is_usb_status_changed(self):
         return not self.usb_status == self.last_usb_status
