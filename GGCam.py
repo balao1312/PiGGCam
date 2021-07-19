@@ -132,6 +132,7 @@ class GGCam():
         self.led_standby.off()
         self.is_recording = False
         self.led_status.off()
+        time.sleep(1)
 
     def check_disk_usage(self):
         if self.output_location == 'usb drive':

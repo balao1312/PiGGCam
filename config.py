@@ -1,4 +1,4 @@
-config = {'duration': 60,
+config = {'duration': 600,
  'fps': 30,
  'motion_interval': 0,
  'output_location': 'usb drive',
