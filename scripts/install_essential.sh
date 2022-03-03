@@ -3,4 +3,5 @@ if [[ $EUID -ne 0 ]]; then
    exit 1
 else
     apt install python3-pip -y
+    apt install python3-opencv -y
 fi
