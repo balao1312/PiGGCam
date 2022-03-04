@@ -3,13 +3,21 @@ if [[ $EUID -ne 0 ]]; then
    echo "This script must be run as root" 1>&2
    exit 1
 else
-	read -p "Version to install: " ver
+	read -p "Version to install(ex:4.5.3): " ver
+	apt install -y libpng-dev \
+		libavcodec-dev libavformat-dev libswscale-dev \
+		libfontconfig1-dev libcairo2-dev \
+		libgdk-pixbuf2.0-dev libpango1.0-dev \
+		libgtk2.0-dev libgtk-3-dev \
+		libhdf5-dev libhdf5-serial-dev libhdf5-103 \
+		libqt5gui5 libqt5webkit5 libqt5test5 python3-pyqt5
+
 	apt install build-essential cmake pkg-config -y
 	apt install libjpeg-dev libtiff5-dev libjasper-dev libpng12-dev -y
 	apt install libavcodec-dev libavformat-dev libswscale-dev libv4l-dev -y
 	apt install libxvidcore-dev libx264-dev -y
 	apt install libatlas-base-dev gfortran -y
-	apt install install python2.7-dev python3-dev -y
+	apt install python2.7-dev python3-dev -y
 	cd ~
 	cv="https://github.com/Itseez/opencv/archive/$ver.zip"
 	echo $cv
