@@ -35,6 +35,11 @@ class GGCam():
         self.log_folder = Path('./logs')
         if not self.log_folder.exists():
             self.log_folder.mkdir()
+        self.onoff_file = Path('./onoff')
+        if not self.onoff_file.exists():
+            self.onoff_file.touch()
+            with open(self.onoff_file, 'w') as f:
+                f.write('0')
 
         self.logging_file_renew()
         self.load_config_from_file()
@@ -72,6 +77,14 @@ class GGCam():
             return self.button.is_pressed
         elif self.record_mode == 'motion':
             return self.is_motion
+        elif self.record_mode == 'testing':
+            return self.get_on_off_from_file
+
+    @property
+    def get_on_off_from_file(self):
+        with open('./onoff', 'r') as f:
+            on_or_off = f.read()
+        return int(on_or_off)
 
     def logging_file_renew(self):
         # delete existing handler and renew, for log to new file if date changes
@@ -109,7 +122,16 @@ class GGCam():
         3. final output file        
         '''
 
-        # determine final output file folder
+        # 1. set recording h264 file folder
+        self.temp_h264_folder = Path('/mnt/ramdisk')    # best sulotion
+        # self.temp_h264_folder = self.output_folder  # depends on output location
+        # self.temp_h264_folder = Path('/home/pi')  # may cause frame dropping
+
+        # 2. set converting temp file folder
+        self.converting_temp_folder = Path('/mnt/ramdisk')  # best sulotion
+        # self.converting_temp_folder = self.output_folder  # depends on output location
+
+        # 3.determine final output file folder
         if self.output_location == 'sd card':
             self.output_folder = Path('/home/pi/videos')
             if not self.output_folder.exists():
@@ -117,15 +139,6 @@ class GGCam():
 
         elif self.output_location == 'usb drive':
             self.output_folder = Path('/mnt/usb/videos')
-
-        # set recording h264 file folder
-        self.temp_h264_folder = Path('/mnt/ramdisk')    # best sulotion
-        # self.temp_h264_folder = self.output_folder  # depends on output location
-        # self.temp_h264_folder = Path('/home/pi')  # may cause frame dropping
-
-        # set converting temp file folder
-        self.converting_temp_folder = Path('/mnt/ramdisk')  # best sulotion
-        # self.converting_temp_folder = self.output_folder  # depends on output location
 
     def GGCam_exit(self):
         logging.info('program ended.')
