@@ -1,6 +1,6 @@
-config = {'duration': 600,
+config = {'duration': 300,
  'fps': 30,
  'motion_interval': 0,
- 'output_location': 'usb drive',
+ 'output_location': 'sd card',
  'record_mode': 'non-stop',
  'resolution': (1920, 1080)}
