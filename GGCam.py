@@ -12,7 +12,7 @@ import time
 import sys
 import re
 
-from usb_check import Usb_check
+from usb_util import Usb_check
 
 
 class GGCam():
